@@ -1,10 +1,12 @@
-use image::{ImageBuffer, Rgb};
+mod canvas;
+use canvas::Canvas;
 
 fn main() {
-    let width = 800;
-    let height = 800;
-
-    let mut imgbuf = ImageBuffer::new(width, height);
-    imgbuf.put_pixel(10, 10, Rgb([255u8, 255u8, 255u8]));
-    imgbuf.save("output.png").expect("Unable to write to file.");
+    let mut canvas = Canvas::new(800, 800);
+    for x in -5..5 {
+        for y in -5..5 {
+            canvas.put_pixel(x, y, &[255, 0, 0]);
+        }
+    }
+    canvas.save("output.png");
 }
