@@ -1,31 +1,27 @@
 use image::{ImageBuffer, Rgb};
 
 pub struct Canvas {
-    width: u32,
-    height: u32,
+    width: i32,
+    height: i32,
     imgbuf: ImageBuffer<Rgb<u8>, Vec<u8>>,
 }
 
 impl Canvas {
-    pub fn new(width: u32, height: u32) -> Self {
+    pub fn new(width: i32, height: i32) -> Self {
         Canvas {
             width,
             height,
-            imgbuf: ImageBuffer::new(width, height),
+            imgbuf: ImageBuffer::new(width as u32, height as u32),
         }
     }
 
-    pub fn put_pixel(&mut self, x: i32, y: i32, color: &[u8; 3]) {
-        let screen_x = (self.width / 2) as i32 + x;
-        let screen_y = (self.height / 2) as i32 - y;
+    pub fn put_pixel(&mut self, x: i32, y: i32, color: [u8; 3]) {
+        let screen_x = self.width / 2 + x;
+        let screen_y = self.height / 2 - y;
 
-        if screen_x >= 0
-            && screen_x < self.width as i32
-            && screen_y >= 0
-            && screen_y < self.height as i32
-        {
+        if screen_x >= 0 && screen_x < self.width && screen_y >= 0 && screen_y < self.height {
             self.imgbuf
-                .put_pixel(screen_x as u32, screen_y as u32, Rgb(*color));
+                .put_pixel(screen_x as u32, screen_y as u32, Rgb(color));
         }
     }
 
