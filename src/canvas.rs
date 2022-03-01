@@ -1,33 +1,28 @@
-use image::{ImageBuffer, Rgb};
+use std::convert::TryInto;
+
+use macroquad::prelude::*;
 
 pub struct Canvas {
-    width: i32,
-    height: i32,
-    imgbuf: ImageBuffer<Rgb<u8>, Vec<u8>>,
+    image: Image,
 }
 
 impl Canvas {
-    pub fn new(width: i32, height: i32) -> Self {
-        Canvas {
-            width,
-            height,
-            imgbuf: ImageBuffer::new(width as u32, height as u32),
+    pub fn new(width: u16, height: u16) -> Self {
+        Self {
+            image: Image::gen_image_color(width, height, WHITE),
         }
     }
 
-    pub fn put_pixel(&mut self, x: i32, y: i32, color: [u8; 3]) {
-        let screen_x = self.width / 2 + x;
-        let screen_y = self.height / 2 - y;
+    pub fn put_pixel(&mut self, x: i32, y: i32, color: Color) {
+        let screen_x = self.image.width as i32 / 2 + x;
+        let screen_y = self.image.height as i32 / 2 - y;
 
-        if screen_x >= 0 && screen_x < self.width && screen_y >= 0 && screen_y < self.height {
-            self.imgbuf
-                .put_pixel(screen_x as u32, screen_y as u32, Rgb(color));
+        if let (Ok(s_x), Ok(s_y)) = (screen_x.try_into(), screen_y.try_into()) {
+            self.image.set_pixel(s_x, s_y, color);
         }
     }
 
-    pub fn save(&self, filename: &str) {
-        self.imgbuf
-            .save(filename)
-            .expect("Unable to write to file.");
+    pub fn render(&self) -> Texture2D {
+        Texture2D::from_image(&self.image)
     }
 }
