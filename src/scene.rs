@@ -8,11 +8,18 @@ pub struct Sphere {
     pub color: Color,
 }
 
+pub enum Light {
+    Ambient { intensity: f32 },
+    Point { intensity: f32, position: Vec3 },
+    Directional { intensity: f32, direction: Vec3 },
+}
+
 pub struct Scene {
     viewport: Vec2,
     projection_distance: f32,
     background_color: Color,
     spheres: Vec<Sphere>,
+    lights: Vec<Light>,
 }
 
 impl Scene {
@@ -22,11 +29,16 @@ impl Scene {
             projection_distance,
             background_color: WHITE,
             spheres: Vec::new(),
+            lights: Vec::new(),
         }
     }
 
     pub fn add_sphere(&mut self, sphere: Sphere) {
         self.spheres.push(sphere);
+    }
+
+    pub fn add_light(&mut self, light: Light) {
+        self.lights.push(light);
     }
 
     pub fn render(&self, canvas: &mut Canvas) {
@@ -63,7 +75,15 @@ impl Scene {
         }
 
         if let Some(sphere) = closest_sphere {
-            sphere.color
+            let point_of_intersection = origin + closest_t * direction;
+            let normal = (point_of_intersection - sphere.center).normalize();
+            let intensity = self.compute_lighting(point_of_intersection, normal);
+
+            let mut color = sphere.color;
+            color.r *= intensity;
+            color.g *= intensity;
+            color.b *= intensity;
+            color
         } else {
             self.background_color
         }
@@ -88,5 +108,32 @@ impl Scene {
                 (-b - square_root) / (2.0 * a),
             ]
         }
+    }
+
+    fn compute_lighting(&self, point: Vec3, normal: Vec3) -> f32 {
+        let mut i = 0.0;
+
+        for light in &self.lights {
+            let (direction, intensity) = match light {
+                Light::Ambient { intensity } => {
+                    i += intensity;
+                    continue;
+                }
+                Light::Point {
+                    intensity,
+                    position,
+                } => (*position - point, intensity),
+
+                Light::Directional {
+                    intensity,
+                    direction,
+                } => (*direction, intensity),
+            };
+            let normal_dot_direction = normal.dot(direction);
+            if normal_dot_direction > 0.0 {
+                i += intensity * normal_dot_direction / (normal.length() * direction.length());
+            }
+        }
+        i
     }
 }

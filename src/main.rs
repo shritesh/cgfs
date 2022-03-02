@@ -3,7 +3,7 @@ mod scene;
 
 use canvas::Canvas;
 use macroquad::prelude::*;
-use scene::{Scene, Sphere};
+use scene::{Light, Scene, Sphere};
 
 const WINDOW_SIZE: u16 = 800;
 
@@ -37,6 +37,16 @@ async fn main() {
         center: Vec3::new(0.0, -5001.0, 0.0),
         radius: 5000.0,
         color: Color::new(1.0, 1.0, 0.0, 1.0),
+    });
+
+    scene.add_light(Light::Ambient { intensity: 0.2 });
+    scene.add_light(Light::Point {
+        intensity: 0.2,
+        position: Vec3::new(2.0, 1.0, 0.0),
+    });
+    scene.add_light(Light::Directional {
+        intensity: 0.2,
+        direction: Vec3::new(1.0, 4.0, 4.0),
     });
 
     let mut canvas = Canvas::new(WINDOW_SIZE, WINDOW_SIZE);
