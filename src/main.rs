@@ -1,15 +1,11 @@
 mod canvas;
 mod color;
-mod light;
 mod raytracer;
-mod sphere;
 mod vec3;
 
 use canvas::Canvas;
 use color::Color;
-use light::Light;
 use raytracer::Raytracer;
-use sphere::Sphere;
 use vec3::Vec3;
 
 fn main() {

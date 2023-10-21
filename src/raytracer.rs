@@ -1,10 +1,24 @@
-use crate::{Canvas, Color, Light, Sphere, Vec3};
+use crate::{Canvas, Color, Vec3};
 
 pub struct Raytracer<'a> {
     camera_position: Vec3,
     viewport: Vec3, // width, height, distance to projection plane
     spheres: &'a [Sphere],
     lights: &'a [Light],
+}
+
+pub enum Light {
+    Point { position: Vec3, intensity: f64 },
+    Directional { direction: Vec3, intensity: f64 },
+    Ambient { intensity: f64 },
+}
+
+pub struct Sphere {
+    pub center: Vec3,
+    pub radius: f64,
+    pub color: Color,
+    pub specular: f64,
+    pub reflective: f64,
 }
 
 impl<'a> Raytracer<'a> {
