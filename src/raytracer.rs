@@ -1,26 +1,58 @@
 use crate::{Canvas, Color, Light, Sphere, Vec3};
 
-pub struct Scene {
+pub struct Raytracer<'a> {
     camera_position: Vec3,
     viewport: Vec3, // width, height, distance to projection plane
-    spheres: Vec<Sphere>,
-    lights: Vec<Light>,
+    spheres: &'a [Sphere],
+    lights: &'a [Light],
 }
 
-impl Scene {
-    pub fn new(
-        camera_position: Vec3,
-        viewport: Vec3,
-        spheres: Vec<Sphere>,
-        lights: Vec<Light>,
-    ) -> Self {
-        Self {
-            camera_position,
-            viewport,
-            spheres,
-            lights,
-        }
-    }
+impl<'a> Raytracer<'a> {
+    pub const DEFAULT_SCENE: Self = Self {
+        camera_position: Vec3(0.0, 0.0, 0.0),
+        viewport: Vec3(1.0, 1.0, 1.0),
+        spheres: &[
+            Sphere {
+                center: Vec3(0.0, -1.0, 3.0),
+                radius: 1.0,
+                color: Color(255, 0, 0),
+                specular: 500.0,
+                reflective: 0.2,
+            },
+            Sphere {
+                center: Vec3(2.0, 0.0, 4.0),
+                radius: 1.0,
+                color: Color(0, 0, 255),
+                specular: 500.0,
+                reflective: 0.3,
+            },
+            Sphere {
+                center: Vec3(-2.0, 0.0, 4.0),
+                radius: 1.0,
+                color: Color(0, 255, 0),
+                specular: 10.0,
+                reflective: 0.4,
+            },
+            Sphere {
+                center: Vec3(0.0, -5001.0, 0.0),
+                radius: 5000.0,
+                color: Color(255, 255, 0),
+                specular: 1000.0,
+                reflective: 0.5,
+            },
+        ],
+        lights: &[
+            Light::Ambient { intensity: 0.2 },
+            Light::Point {
+                position: Vec3(2.0, 1.0, 0.0),
+                intensity: 0.6,
+            },
+            Light::Directional {
+                direction: Vec3(1.0, 4.0, 4.0),
+                intensity: 0.2,
+            },
+        ],
+    };
 
     fn canvas_to_viewport(&self, canvas: &Canvas, x: i32, y: i32) -> Vec3 {
         Vec3(
@@ -32,7 +64,7 @@ impl Scene {
 
     fn compute_lighting(&self, point: Vec3, normal: Vec3, view: Vec3, specular: f64) -> f64 {
         let mut i = 0.0;
-        for light in &self.lights {
+        for light in self.lights {
             let (direction, intensity, t_max) = match light {
                 Light::Ambient { intensity } => {
                     i += intensity;
@@ -102,7 +134,7 @@ impl Scene {
         let mut closest_t = f64::INFINITY;
         let mut closest_sphere = None;
 
-        for sphere in &self.spheres {
+        for sphere in self.spheres {
             let (t1, t2) = Self::intersect_ray_sphere(origin, direction, sphere);
 
             if t1 >= t_min && t1 <= t_max && t1 < closest_t {
