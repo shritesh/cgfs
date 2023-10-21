@@ -33,7 +33,7 @@ impl Scene {
     fn compute_lighting(&self, point: Vec3, normal: Vec3, view: Vec3, specular: f64) -> f64 {
         let mut i = 0.0;
         for light in &self.lights {
-            let (direction, intensity) = match light {
+            let (direction, intensity, t_max) = match light {
                 Light::Ambient { intensity } => {
                     i += intensity;
                     continue;
@@ -41,12 +41,17 @@ impl Scene {
                 Light::Point {
                     position,
                     intensity,
-                } => (*position - point, *intensity),
+                } => (*position - point, *intensity, 1.0),
                 Light::Directional {
                     direction,
                     intensity,
-                } => (*direction, *intensity),
+                } => (*direction, *intensity, f64::INFINITY),
             };
+
+            // shadow_check
+            if let (_, Some(_)) = self.closest_intesection(point, direction, 0.001, t_max) {
+                continue;
+            }
 
             // diffuse
             let normal_dot_direction = normal.dot(direction);
@@ -87,7 +92,13 @@ impl Scene {
         }
     }
 
-    fn trace_ray(&self, origin: Vec3, direction: Vec3, t_min: f64, t_max: f64) -> Color {
+    fn closest_intesection(
+        &self,
+        origin: Vec3,
+        direction: Vec3,
+        t_min: f64,
+        t_max: f64,
+    ) -> (f64, Option<&Sphere>) {
         let mut closest_t = f64::INFINITY;
         let mut closest_sphere = None;
 
@@ -104,7 +115,12 @@ impl Scene {
             }
         }
 
-        if let Some(sphere) = closest_sphere {
+        (closest_t, closest_sphere)
+    }
+
+    fn trace_ray(&self, origin: Vec3, direction: Vec3, t_min: f64, t_max: f64) -> Color {
+        if let (closest_t, Some(sphere)) = self.closest_intesection(origin, direction, t_min, t_max)
+        {
             let point = origin + closest_t * direction;
             let normal = (point - sphere.center).unit();
             sphere.color * self.compute_lighting(point, normal, -direction, sphere.specular)
