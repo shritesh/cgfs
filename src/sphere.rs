@@ -6,4 +6,5 @@ pub struct Sphere {
     pub radius: f64,
     pub color: Color,
     pub specular: f64,
+    pub reflective: f64,
 }

@@ -62,4 +62,8 @@ impl Vec3 {
     pub fn unit(self) -> Self {
         self / self.length()
     }
+
+    pub fn reflect(self, normal: Vec3) -> Self {
+        2.0 * normal * normal.dot(self) - self
+    }
 }

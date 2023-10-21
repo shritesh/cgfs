@@ -4,7 +4,7 @@ use std::ops::{Add, Mul};
 pub struct Color(pub u8, pub u8, pub u8);
 
 impl Color {
-    pub const BACKGROUND_COLOR: Color = Color(255, 255, 255);
+    pub const BACKGROUND_COLOR: Color = Color(0, 0, 0);
 }
 
 impl Add for Color {

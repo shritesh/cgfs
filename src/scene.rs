@@ -61,7 +61,7 @@ impl Scene {
 
             //specular
             if specular != -1.0 {
-                let reflection = 2.0 * normal * normal.dot(direction) - direction;
+                let reflection = direction.reflect(normal);
                 let reflection_dot_view = reflection.dot(view);
                 if reflection_dot_view > 0.0 {
                     i += intensity
@@ -118,12 +118,31 @@ impl Scene {
         (closest_t, closest_sphere)
     }
 
-    fn trace_ray(&self, origin: Vec3, direction: Vec3, t_min: f64, t_max: f64) -> Color {
+    fn trace_ray(
+        &self,
+        origin: Vec3,
+        direction: Vec3,
+        t_min: f64,
+        t_max: f64,
+        recursion_depth: u8,
+    ) -> Color {
         if let (closest_t, Some(sphere)) = self.closest_intesection(origin, direction, t_min, t_max)
         {
             let point = origin + closest_t * direction;
             let normal = (point - sphere.center).unit();
-            sphere.color * self.compute_lighting(point, normal, -direction, sphere.specular)
+            let local_color =
+                sphere.color * self.compute_lighting(point, normal, -direction, sphere.specular);
+
+            let r = sphere.reflective;
+            if recursion_depth == 0 || r <= 0.0 {
+                local_color
+            } else {
+                let reflection = (-direction).reflect(normal);
+                let reflected_color =
+                    self.trace_ray(point, reflection, 0.001, f64::INFINITY, recursion_depth - 1);
+
+                local_color * (1.0 - r) + reflected_color * r
+            }
         } else {
             Color::BACKGROUND_COLOR
         }
@@ -136,7 +155,7 @@ impl Scene {
         for x in -canvas_width / 2..canvas_width / 2 {
             for y in -canvas_height / 2..canvas_height / 2 {
                 let direction = self.canvas_to_viewport(canvas, x, y);
-                let color = self.trace_ray(self.camera_position, direction, 1.0, f64::INFINITY);
+                let color = self.trace_ray(self.camera_position, direction, 1.0, f64::INFINITY, 3);
                 canvas.put_pixel(x, y, color);
             }
         }

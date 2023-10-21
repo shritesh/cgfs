@@ -24,24 +24,28 @@ fn main() {
                 radius: 1.0,
                 color: Color(255, 0, 0),
                 specular: 500.0,
+                reflective: 0.2,
             },
             Sphere {
                 center: Vec3(2.0, 0.0, 4.0),
                 radius: 1.0,
                 color: Color(0, 0, 255),
                 specular: 500.0,
+                reflective: 0.3,
             },
             Sphere {
                 center: Vec3(-2.0, 0.0, 4.0),
                 radius: 1.0,
                 color: Color(0, 255, 0),
                 specular: 10.0,
+                reflective: 0.4,
             },
             Sphere {
                 center: Vec3(0.0, -5001.0, 0.0),
                 radius: 5000.0,
                 color: Color(255, 255, 0),
                 specular: 1000.0,
+                reflective: 0.5,
             },
         ],
         vec![
