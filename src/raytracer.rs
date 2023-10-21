@@ -22,6 +22,8 @@ pub struct Sphere {
 }
 
 impl<'a> Raytracer<'a> {
+    pub const BACKGROUND_COLOR: Color = Color(0, 0, 0);
+
     pub const DEFAULT_SCENE: Self = Self {
         camera_position: Vec3(0.0, 0.0, 0.0),
         viewport: Vec3(1.0, 1.0, 1.0),
@@ -198,7 +200,7 @@ impl<'a> Raytracer<'a> {
                 local_color * (1.0 - r) + reflected_color * r
             }
         } else {
-            Color::BACKGROUND_COLOR
+            Self::BACKGROUND_COLOR
         }
     }
 
