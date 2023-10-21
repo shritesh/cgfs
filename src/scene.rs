@@ -49,7 +49,7 @@ impl Scene {
             };
 
             // shadow_check
-            if let (_, Some(_)) = self.closest_intesection(point, direction, 0.001, t_max) {
+            if self.any_intersection(point, direction, 0.001, t_max) {
                 continue;
             }
 
@@ -116,6 +116,14 @@ impl Scene {
         }
 
         (closest_t, closest_sphere)
+    }
+
+    // optimized early-exit for shadow check
+    fn any_intersection(&self, origin: Vec3, direction: Vec3, t_min: f64, t_max: f64) -> bool {
+        self.spheres.iter().any(|sphere| {
+            let (t1, t2) = Self::intersect_ray_sphere(origin, direction, sphere);
+            (t1 >= t_min && t1 <= t_max) || (t2 >= t_min && t2 <= t_max)
+        })
     }
 
     fn trace_ray(
