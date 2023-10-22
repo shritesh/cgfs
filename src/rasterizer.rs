@@ -47,3 +47,15 @@ pub fn draw_line(canvas: &mut Canvas, p0: (i32, i32), p1: (i32, i32), color: Col
         }
     }
 }
+
+pub fn draw_wireframe_triangle(
+    canvas: &mut Canvas,
+    p0: (i32, i32),
+    p1: (i32, i32),
+    p2: (i32, i32),
+    color: Color,
+) {
+    draw_line(canvas, p0, p1, color);
+    draw_line(canvas, p1, p2, color);
+    draw_line(canvas, p2, p0, color);
+}
