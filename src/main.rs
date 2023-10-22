@@ -20,21 +20,15 @@ fn main() {
             Raytracer::DEFAULT_SCENE.render(&mut canvas);
         }
         Some("rasterize") => {
-            rasterizer::draw_filled_triangle(
-                &mut canvas,
-                Point(-200, -250),
-                Point(200, 50),
-                Point(20, 250),
-                Color(0, 255, 0),
+            let (p0, p1, p2) = (
+                Point(-200, -250, 0.3),
+                Point(200, 50, 0.1),
+                Point(20, 250, 1.0),
             );
 
-            rasterizer::draw_wireframe_triangle(
-                &mut canvas,
-                Point(-200, -250),
-                Point(200, 50),
-                Point(20, 250),
-                Color(0, 0, 0),
-            );
+            rasterizer::draw_filled_triangle(&mut canvas, p0, p1, p2, Color(0, 255, 0));
+
+            rasterizer::draw_wireframe_triangle(&mut canvas, p0, p1, p2, Color(0, 0, 0));
         }
         _ => return eprintln!("specify 'raytrace' or 'rasterize'"),
     }

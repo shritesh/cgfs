@@ -1,7 +1,7 @@
 use crate::{Canvas, Color};
 
 #[derive(Clone, Copy)]
-pub struct Point(pub i32, pub i32);
+pub struct Point(pub i32, pub i32, pub f64);
 
 impl Point {
     pub fn x(&self) -> i32 {
@@ -11,16 +11,20 @@ impl Point {
     pub fn y(&self) -> i32 {
         self.1
     }
+
+    pub fn h(&self) -> f64 {
+        self.2
+    }
 }
 
-fn interpolate(i0: i32, d0: i32, i1: i32, d1: i32) -> Vec<(i32, f64)> {
+fn interpolate<T: Into<f64> + Copy>(i0: i32, d0: T, i1: i32, d1: T) -> Vec<(i32, f64)> {
     let mut values = Vec::new();
 
     if i0 == i1 {
-        values.push((i0, d0 as f64));
+        values.push((i0, d0.into()));
     } else {
-        let a = (d1 - d0) as f64 / (i1 - i0) as f64;
-        let mut d = d0 as f64;
+        let a = (d1.into() - d0.into()) / (i1 - i0) as f64;
+        let mut d = d0.into();
         for i in i0..=i1 {
             values.push((i, d));
             d += a;
@@ -77,24 +81,37 @@ pub fn draw_filled_triangle(
     }
 
     let mut x01 = interpolate(p0.y(), p0.x(), p1.y(), p1.x());
+    let mut h01 = interpolate(p0.y(), p0.h(), p1.y(), p1.h());
+
     let x12 = interpolate(p1.y(), p1.x(), p2.y(), p2.x());
+    let h12 = interpolate(p1.y(), p1.h(), p2.y(), p2.h());
+
     let x02 = interpolate(p0.y(), p0.x(), p2.y(), p2.x());
+    let h02 = interpolate(p0.y(), p0.h(), p2.y(), p2.h());
 
     _ = x01.pop();
+    _ = h01.pop();
 
     let x012 = [x01, x12].concat();
+    let h012 = [h01, h12].concat();
 
     let m = x02.len() / 2;
-    let (x_left, x_right) = if x02[m] < x012[m] {
-        (x02, x012)
+    let (x_left, h_left, x_right, h_right) = if x02[m].1 < x012[m].1 {
+        (x02, h02, x012, h012)
     } else {
-        (x012, x02)
+        (x012, h012, x02, h02)
     };
 
-    for ((left_y, left_x), (right_y, right_x)) in x_left.into_iter().zip(x_right) {
-        debug_assert_eq!(left_y, right_y);
-        for x in (left_x as i32)..=(right_x as i32) {
-            canvas.put_pixel(x, left_y, color)
+    for ((((left_y, left_x), (right_y, right_x)), (left_h_y, left_h)), (right_h_y, right_h)) in
+        x_left.into_iter().zip(x_right).zip(h_left).zip(h_right)
+    {
+        let y = left_y;
+        debug_assert_eq!(y, right_y);
+        debug_assert_eq!(y, left_h_y);
+        debug_assert_eq!(y, right_h_y);
+
+        for (x, h) in interpolate(left_x as i32, left_h, right_x as i32, right_h) {
+            canvas.put_pixel(x, y, h * color)
         }
     }
 }
