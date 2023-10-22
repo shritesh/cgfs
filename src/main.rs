@@ -23,7 +23,7 @@ fn main() {
         Point(-200, -250),
         Point(200, 50),
         Point(20, 250),
-        Color(255, 255, 255),
+        Color(0, 0, 0),
     );
 
     canvas.show();

@@ -92,7 +92,7 @@ pub fn draw_filled_triangle(
     };
 
     for ((left_y, left_x), (right_y, right_x)) in x_left.into_iter().zip(x_right) {
-        assert_eq!(left_y, right_y);
+        debug_assert_eq!(left_y, right_y);
         for x in (left_x as i32)..=(right_x as i32) {
             canvas.put_pixel(x, left_y, color)
         }

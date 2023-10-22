@@ -10,7 +10,7 @@ pub struct Canvas {
 
 impl Canvas {
     pub fn new(title: &str, width: usize, height: usize) -> Self {
-        let buffer: Vec<u32> = vec![0; width * height];
+        let buffer: Vec<u32> = vec![0x00_FF_FF_FF; width * height];
         let window = Window::new(title, width, height, WindowOptions::default()).unwrap();
 
         Self {
