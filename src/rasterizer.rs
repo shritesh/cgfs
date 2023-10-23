@@ -73,11 +73,8 @@ fn project_vertex(canvas: &Canvas, v: Vec3) -> Point {
     viewport_to_canvas(canvas, v.0 * DISTANCE / v.2, v.1 * DISTANCE / v.2)
 }
 
-fn render_triangle(
-    canvas: &mut Canvas,
-    triangle: (usize, usize, usize, Color),
-    projected: &[Point],
-) {
+struct Triangle(pub usize, pub usize, pub usize, pub Color);
+fn render_triangle(canvas: &mut Canvas, triangle: &Triangle, projected: &[Point]) {
     draw_wireframe_triangle(
         canvas,
         projected[triangle.0],
@@ -87,19 +84,27 @@ fn render_triangle(
     )
 }
 
-fn render_object(
-    canvas: &mut Canvas,
-    vertices: &[Vec3],
-    triangles: &[(usize, usize, usize, Color)],
-) {
-    let projected: Vec<Point> = vertices
+struct Model<'a> {
+    vertices: &'a [Vec3],
+    triangles: &'a [Triangle],
+}
+
+struct Instance<'a> {
+    model: &'a Model<'a>,
+    position: Vec3,
+}
+
+fn render_instance(canvas: &mut Canvas, instance: &Instance) {
+    let projected: Vec<Point> = instance
+        .model
+        .vertices
         .into_iter()
-        .map(|v| *v + Vec3(-1.5, 0.0, 7.0))
+        .map(|v| *v + instance.position)
         .map(|v| project_vertex(canvas, v))
         .collect();
 
-    for t in triangles {
-        render_triangle(canvas, *t, &projected);
+    for t in instance.model.triangles {
+        render_triangle(canvas, t, &projected);
     }
 }
 
@@ -123,19 +128,37 @@ pub fn draw_example_scene(canvas: &mut Canvas) {
     let cyan = Color(0, 255, 255);
 
     let triangles = [
-        (0, 1, 2, red),
-        (0, 2, 3, red),
-        (4, 0, 3, green),
-        (4, 3, 7, green),
-        (5, 4, 7, blue),
-        (5, 7, 6, blue),
-        (1, 5, 6, yellow),
-        (1, 6, 2, yellow),
-        (4, 5, 1, purple),
-        (4, 1, 0, purple),
-        (2, 6, 7, cyan),
-        (2, 7, 3, cyan),
+        Triangle(0, 1, 2, red),
+        Triangle(0, 2, 3, red),
+        Triangle(4, 0, 3, green),
+        Triangle(4, 3, 7, green),
+        Triangle(5, 4, 7, blue),
+        Triangle(5, 7, 6, blue),
+        Triangle(1, 5, 6, yellow),
+        Triangle(1, 6, 2, yellow),
+        Triangle(4, 5, 1, purple),
+        Triangle(4, 1, 0, purple),
+        Triangle(2, 6, 7, cyan),
+        Triangle(2, 7, 3, cyan),
     ];
 
-    render_object(canvas, &vertices, &triangles);
+    let cube = Model {
+        vertices: &vertices,
+        triangles: &triangles,
+    };
+
+    let instances = [
+        Instance {
+            model: &cube,
+            position: Vec3(-1.5, 0.0, 7.0),
+        },
+        Instance {
+            model: &cube,
+            position: Vec3(1.25, 2.0, 7.5),
+        },
+    ];
+
+    for i in instances {
+        render_instance(canvas, &i);
+    }
 }
