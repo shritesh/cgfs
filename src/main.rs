@@ -1,5 +1,6 @@
 mod canvas;
 mod color;
+mod matrix;
 mod rasterizer;
 mod raytracer;
 mod vec3;
@@ -8,7 +9,7 @@ use std::env;
 
 use canvas::Canvas;
 use color::Color;
-use rasterizer::Point;
+use matrix::Matrix;
 use raytracer::Raytracer;
 use vec3::Vec3;
 

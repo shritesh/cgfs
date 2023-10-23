@@ -1,4 +1,4 @@
-use crate::{Canvas, Color, Vec3};
+use crate::{Canvas, Color, Matrix, Vec3};
 
 #[derive(Clone, Copy)]
 pub struct Point(pub i32, pub i32);
@@ -89,22 +89,47 @@ struct Model<'a> {
     triangles: &'a [Triangle],
 }
 
-struct Instance<'a> {
-    model: &'a Model<'a>,
+struct Transform {
+    scale: f64,
+    rotation: Matrix,
     position: Vec3,
 }
 
-fn render_instance(canvas: &mut Canvas, instance: &Instance) {
-    let projected: Vec<Point> = instance
-        .model
+impl Transform {
+    fn matrix(&self) -> Matrix {
+        Matrix::translation(self.position) * (self.rotation * Matrix::scaling(self.scale))
+    }
+}
+
+struct Instance<'a> {
+    model: &'a Model<'a>,
+    transform: Transform,
+}
+
+struct Camera {
+    position: Vec3,
+    orientation: Matrix,
+}
+
+fn render_model(canvas: &mut Canvas, model: &Model, transform_matrix: Matrix) {
+    let projected: Vec<Point> = model
         .vertices
         .into_iter()
-        .map(|v| *v + instance.position)
-        .map(|v| project_vertex(canvas, v))
+        .map(|v| project_vertex(canvas, transform_matrix * *v))
         .collect();
 
-    for t in instance.model.triangles {
+    for t in model.triangles {
         render_triangle(canvas, t, &projected);
+    }
+}
+
+fn render_scene(canvas: &mut Canvas, camera: Camera, instances: &[Instance]) {
+    let camera_matrix =
+        camera.orientation.transpose() * Matrix::translation(-1.0 * camera.position);
+
+    for instance in instances {
+        let transform_matrix = camera_matrix * instance.transform.matrix();
+        render_model(canvas, instance.model, transform_matrix);
     }
 }
 
@@ -150,15 +175,26 @@ pub fn draw_example_scene(canvas: &mut Canvas) {
     let instances = [
         Instance {
             model: &cube,
-            position: Vec3(-1.5, 0.0, 7.0),
+            transform: Transform {
+                scale: 0.75,
+                rotation: Matrix::IDENTITY,
+                position: Vec3(-1.5, 0.0, 7.0),
+            },
         },
         Instance {
             model: &cube,
-            position: Vec3(1.25, 2.0, 7.5),
+            transform: Transform {
+                scale: 1.0,
+                rotation: Matrix::rotation_y(195.0),
+                position: Vec3(1.25, 2.0, 7.5),
+            },
         },
     ];
 
-    for i in instances {
-        render_instance(canvas, &i);
-    }
+    let camera = Camera {
+        position: Vec3(-3.0, 1.0, 2.0),
+        orientation: Matrix::rotation_y(-30.0),
+    };
+
+    render_scene(canvas, camera, &instances);
 }
