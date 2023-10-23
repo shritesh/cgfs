@@ -1,7 +1,7 @@
-use crate::{Canvas, Color};
+use crate::{Canvas, Color, Vec3};
 
 #[derive(Clone, Copy)]
-pub struct Point(pub i32, pub i32, pub f64);
+pub struct Point(pub i32, pub i32);
 
 impl Point {
     pub fn x(&self) -> i32 {
@@ -10,10 +10,6 @@ impl Point {
 
     pub fn y(&self) -> i32 {
         self.1
-    }
-
-    pub fn h(&self) -> f64 {
-        self.2
     }
 }
 
@@ -56,62 +52,107 @@ pub fn draw_line(canvas: &mut Canvas, mut p0: Point, mut p1: Point, color: Color
     }
 }
 
-pub fn draw_wireframe_triangle(canvas: &mut Canvas, p0: Point, p1: Point, p2: Point, color: Color) {
-    draw_line(canvas, p0, p1, color);
-    draw_line(canvas, p1, p2, color);
-    draw_line(canvas, p2, p0, color);
+const VIEWPORT_WIDTH: f64 = 1.0;
+const VIEWPORT_HEIGHT: f64 = 1.0;
+const DISTANCE: f64 = 1.0;
+
+fn viewport_to_canvas(canvas: &Canvas, x: f64, y: f64) -> Point {
+    Point(
+        (x * canvas.width() as f64 / VIEWPORT_WIDTH) as i32,
+        (y * canvas.height() as f64 / VIEWPORT_HEIGHT) as i32,
+    )
 }
 
-pub fn draw_filled_triangle(
-    canvas: &mut Canvas,
-    mut p0: Point,
-    mut p1: Point,
-    mut p2: Point,
-    color: Color,
-) {
-    // sort according to y
-    if p1.y() < p0.y() {
-        std::mem::swap(&mut p1, &mut p0);
-    }
-    if p2.y() < p0.y() {
-        std::mem::swap(&mut p2, &mut p0);
-    }
-    if p2.y() < p1.y() {
-        std::mem::swap(&mut p2, &mut p1);
-    }
+fn project_vertex(canvas: &Canvas, v: Vec3) -> Point {
+    viewport_to_canvas(canvas, v.0 * DISTANCE / v.2, v.1 * DISTANCE / v.2)
+}
 
-    let mut x01 = interpolate(p0.y(), p0.x(), p1.y(), p1.x());
-    let mut h01 = interpolate(p0.y(), p0.h(), p1.y(), p1.h());
+pub fn draw_example_cube(canvas: &mut Canvas) {
+    let a_front = Vec3(-2.0, -0.5, 5.0);
+    let b_front = Vec3(-2.0, 0.5, 5.0);
+    let c_front = Vec3(-1.0, 0.5, 5.0);
+    let d_front = Vec3(-1.0, -0.5, 5.0);
 
-    let x12 = interpolate(p1.y(), p1.x(), p2.y(), p2.x());
-    let h12 = interpolate(p1.y(), p1.h(), p2.y(), p2.h());
+    let a_back = Vec3(-2.0, -0.5, 6.0);
+    let b_back = Vec3(-2.0, 0.5, 6.0);
+    let c_back = Vec3(-1.0, 0.5, 6.0);
+    let d_back = Vec3(-1.0, -0.5, 6.0);
 
-    let x02 = interpolate(p0.y(), p0.x(), p2.y(), p2.x());
-    let h02 = interpolate(p0.y(), p0.h(), p2.y(), p2.h());
+    // front face
+    draw_line(
+        canvas,
+        project_vertex(canvas, a_front),
+        project_vertex(canvas, b_front),
+        Color(0, 0, 255),
+    );
+    draw_line(
+        canvas,
+        project_vertex(canvas, b_front),
+        project_vertex(canvas, c_front),
+        Color(0, 0, 255),
+    );
+    draw_line(
+        canvas,
+        project_vertex(canvas, c_front),
+        project_vertex(canvas, d_front),
+        Color(0, 0, 255),
+    );
+    draw_line(
+        canvas,
+        project_vertex(canvas, d_front),
+        project_vertex(canvas, a_front),
+        Color(0, 0, 255),
+    );
 
-    _ = x01.pop();
-    _ = h01.pop();
+    // back face
+    draw_line(
+        canvas,
+        project_vertex(canvas, a_back),
+        project_vertex(canvas, b_back),
+        Color(255, 0, 0),
+    );
+    draw_line(
+        canvas,
+        project_vertex(canvas, b_back),
+        project_vertex(canvas, c_back),
+        Color(255, 0, 0),
+    );
+    draw_line(
+        canvas,
+        project_vertex(canvas, c_back),
+        project_vertex(canvas, d_back),
+        Color(255, 0, 0),
+    );
+    draw_line(
+        canvas,
+        project_vertex(canvas, d_back),
+        project_vertex(canvas, a_back),
+        Color(255, 0, 0),
+    );
 
-    let x012 = [x01, x12].concat();
-    let h012 = [h01, h12].concat();
-
-    let m = x02.len() / 2;
-    let (x_left, h_left, x_right, h_right) = if x02[m].1 < x012[m].1 {
-        (x02, h02, x012, h012)
-    } else {
-        (x012, h012, x02, h02)
-    };
-
-    for ((((left_y, left_x), (right_y, right_x)), (left_h_y, left_h)), (right_h_y, right_h)) in
-        x_left.into_iter().zip(x_right).zip(h_left).zip(h_right)
-    {
-        let y = left_y;
-        debug_assert_eq!(y, right_y);
-        debug_assert_eq!(y, left_h_y);
-        debug_assert_eq!(y, right_h_y);
-
-        for (x, h) in interpolate(left_x as i32, left_h, right_x as i32, right_h) {
-            canvas.put_pixel(x, y, h * color)
-        }
-    }
+    // front to back
+    draw_line(
+        canvas,
+        project_vertex(canvas, a_front),
+        project_vertex(canvas, a_back),
+        Color(0, 255, 0),
+    );
+    draw_line(
+        canvas,
+        project_vertex(canvas, b_front),
+        project_vertex(canvas, b_back),
+        Color(0, 255, 0),
+    );
+    draw_line(
+        canvas,
+        project_vertex(canvas, c_front),
+        project_vertex(canvas, c_back),
+        Color(0, 255, 0),
+    );
+    draw_line(
+        canvas,
+        project_vertex(canvas, d_front),
+        project_vertex(canvas, d_back),
+        Color(0, 255, 0),
+    );
 }
