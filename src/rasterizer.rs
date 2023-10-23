@@ -52,6 +52,12 @@ pub fn draw_line(canvas: &mut Canvas, mut p0: Point, mut p1: Point, color: Color
     }
 }
 
+pub fn draw_wireframe_triangle(canvas: &mut Canvas, p0: Point, p1: Point, p2: Point, color: Color) {
+    draw_line(canvas, p0, p1, color);
+    draw_line(canvas, p1, p2, color);
+    draw_line(canvas, p2, p0, color);
+}
+
 const VIEWPORT_WIDTH: f64 = 1.0;
 const VIEWPORT_HEIGHT: f64 = 1.0;
 const DISTANCE: f64 = 1.0;
@@ -67,92 +73,69 @@ fn project_vertex(canvas: &Canvas, v: Vec3) -> Point {
     viewport_to_canvas(canvas, v.0 * DISTANCE / v.2, v.1 * DISTANCE / v.2)
 }
 
-pub fn draw_example_cube(canvas: &mut Canvas) {
-    let a_front = Vec3(-2.0, -0.5, 5.0);
-    let b_front = Vec3(-2.0, 0.5, 5.0);
-    let c_front = Vec3(-1.0, 0.5, 5.0);
-    let d_front = Vec3(-1.0, -0.5, 5.0);
+fn render_triangle(
+    canvas: &mut Canvas,
+    triangle: (usize, usize, usize, Color),
+    projected: &[Point],
+) {
+    draw_wireframe_triangle(
+        canvas,
+        projected[triangle.0],
+        projected[triangle.1],
+        projected[triangle.2],
+        triangle.3,
+    )
+}
 
-    let a_back = Vec3(-2.0, -0.5, 6.0);
-    let b_back = Vec3(-2.0, 0.5, 6.0);
-    let c_back = Vec3(-1.0, 0.5, 6.0);
-    let d_back = Vec3(-1.0, -0.5, 6.0);
+fn render_object(
+    canvas: &mut Canvas,
+    vertices: &[Vec3],
+    triangles: &[(usize, usize, usize, Color)],
+) {
+    let projected: Vec<Point> = vertices
+        .into_iter()
+        .map(|v| *v + Vec3(-1.5, 0.0, 7.0))
+        .map(|v| project_vertex(canvas, v))
+        .collect();
 
-    // front face
-    draw_line(
-        canvas,
-        project_vertex(canvas, a_front),
-        project_vertex(canvas, b_front),
-        Color(0, 0, 255),
-    );
-    draw_line(
-        canvas,
-        project_vertex(canvas, b_front),
-        project_vertex(canvas, c_front),
-        Color(0, 0, 255),
-    );
-    draw_line(
-        canvas,
-        project_vertex(canvas, c_front),
-        project_vertex(canvas, d_front),
-        Color(0, 0, 255),
-    );
-    draw_line(
-        canvas,
-        project_vertex(canvas, d_front),
-        project_vertex(canvas, a_front),
-        Color(0, 0, 255),
-    );
+    for t in triangles {
+        render_triangle(canvas, *t, &projected);
+    }
+}
 
-    // back face
-    draw_line(
-        canvas,
-        project_vertex(canvas, a_back),
-        project_vertex(canvas, b_back),
-        Color(255, 0, 0),
-    );
-    draw_line(
-        canvas,
-        project_vertex(canvas, b_back),
-        project_vertex(canvas, c_back),
-        Color(255, 0, 0),
-    );
-    draw_line(
-        canvas,
-        project_vertex(canvas, c_back),
-        project_vertex(canvas, d_back),
-        Color(255, 0, 0),
-    );
-    draw_line(
-        canvas,
-        project_vertex(canvas, d_back),
-        project_vertex(canvas, a_back),
-        Color(255, 0, 0),
-    );
+pub fn draw_example_scene(canvas: &mut Canvas) {
+    let vertices = [
+        Vec3(1.0, 1.0, 1.0),
+        Vec3(-1.0, 1.0, 1.0),
+        Vec3(-1.0, -1.0, 1.0),
+        Vec3(1.0, -1.0, 1.0),
+        Vec3(1.0, 1.0, -1.0),
+        Vec3(-1.0, 1.0, -1.0),
+        Vec3(-1.0, -1.0, -1.0),
+        Vec3(1.0, -1.0, -1.0),
+    ];
 
-    // front to back
-    draw_line(
-        canvas,
-        project_vertex(canvas, a_front),
-        project_vertex(canvas, a_back),
-        Color(0, 255, 0),
-    );
-    draw_line(
-        canvas,
-        project_vertex(canvas, b_front),
-        project_vertex(canvas, b_back),
-        Color(0, 255, 0),
-    );
-    draw_line(
-        canvas,
-        project_vertex(canvas, c_front),
-        project_vertex(canvas, c_back),
-        Color(0, 255, 0),
-    );
-    draw_line(
-        canvas,
-        project_vertex(canvas, d_front),
-        project_vertex(canvas, d_back),
-        Color(0, 255, 0),
-    );
+    let red = Color(255, 0, 0);
+    let green = Color(0, 255, 0);
+    let blue = Color(0, 0, 255);
+    let yellow = Color(255, 255, 0);
+    let purple = Color(255, 0, 255);
+    let cyan = Color(0, 255, 255);
+
+    let triangles = [
+        (0, 1, 2, red),
+        (0, 2, 3, red),
+        (4, 0, 3, green),
+        (4, 3, 7, green),
+        (5, 4, 7, blue),
+        (5, 7, 6, blue),
+        (1, 5, 6, yellow),
+        (1, 6, 2, yellow),
+        (4, 5, 1, purple),
+        (4, 1, 0, purple),
+        (2, 6, 7, cyan),
+        (2, 7, 3, cyan),
+    ];
+
+    render_object(canvas, &vertices, &triangles);
 }

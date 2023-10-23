@@ -20,7 +20,7 @@ fn main() {
             Raytracer::DEFAULT_SCENE.render(&mut canvas);
         }
         Some("rasterize") => {
-            rasterizer::draw_example_cube(&mut canvas);
+            rasterizer::draw_example_scene(&mut canvas);
         }
         _ => return eprintln!("specify 'raytrace' or 'rasterize'"),
     }
