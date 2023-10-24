@@ -1,6 +1,6 @@
-use cgfs::{rasterizer, Canvas};
+use cgfs::{Canvas, Rasterizer};
 pub fn main() {
-    let mut canvas = Canvas::new("Computer Graphics from Scratch - Rasterizer", 800, 800);
-    rasterizer::draw_example_scene(&mut canvas);
-    canvas.show();
+    let mut canvas = Canvas::new("Computer Graphics from Scratch - Raytracer", 800, 800);
+    let mut rasterizer = Rasterizer::DEFAULT_SCENE;
+    canvas.render(&mut rasterizer);
 }

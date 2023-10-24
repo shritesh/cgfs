@@ -3,6 +3,15 @@ use std::ops::{Add, Mul};
 #[derive(Clone, Copy)]
 pub struct Color(pub u8, pub u8, pub u8);
 
+impl Color {
+    pub const RED: Self = Self(255, 0, 0);
+    pub const GREEN: Self = Self(0, 255, 0);
+    pub const BLUE: Self = Self(0, 0, 255);
+    pub const YELLOW: Self = Self(255, 255, 0);
+    pub const PURPLE: Self = Self(255, 0, 255);
+    pub const CYAN: Self = Self(0, 255, 255);
+}
+
 impl Add for Color {
     type Output = Self;
 

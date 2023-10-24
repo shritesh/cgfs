@@ -1,7 +1,8 @@
-use crate::{Canvas, Color, Vec3};
+use crate::{Canvas, Color, Matrix, Renderer, Vec3};
 
 pub struct Raytracer<'a> {
     camera_position: Vec3,
+    camera_rotation: f64,
     viewport: Vec3, // width, height, distance to projection plane
     spheres: &'a [Sphere],
     lights: &'a [Light],
@@ -26,6 +27,7 @@ impl<'a> Raytracer<'a> {
 
     pub const DEFAULT_SCENE: Self = Self {
         camera_position: Vec3(0.0, 0.0, 0.0),
+        camera_rotation: 0.0,
         viewport: Vec3(1.0, 1.0, 1.0),
         spheres: &[
             Sphere {
@@ -203,17 +205,52 @@ impl<'a> Raytracer<'a> {
             Self::BACKGROUND_COLOR
         }
     }
+}
 
-    pub fn render(&self, canvas: &mut Canvas) {
+impl<'a> Renderer for Raytracer<'a> {
+    fn render(&self, canvas: &mut Canvas) {
         let canvas_width = canvas.width() as i32;
         let canvas_height = canvas.height() as i32;
 
         for x in -canvas_width / 2..canvas_width / 2 {
             for y in -canvas_height / 2..canvas_height / 2 {
-                let direction = self.canvas_to_viewport(canvas, x, y);
+                let direction = Matrix::rotation_y(self.camera_rotation)
+                    * self.canvas_to_viewport(canvas, x, y);
                 let color = self.trace_ray(self.camera_position, direction, 1.0, f64::INFINITY, 3);
                 canvas.put_pixel(x, y, color);
             }
         }
+    }
+
+    fn move_up(&mut self) {
+        self.camera_position.1 += 0.05;
+    }
+
+    fn move_down(&mut self) {
+        self.camera_position.1 -= 0.05;
+    }
+
+    fn move_left(&mut self) {
+        self.camera_position.0 -= 0.05;
+    }
+
+    fn move_right(&mut self) {
+        self.camera_position.0 += 0.05;
+    }
+
+    fn move_front(&mut self) {
+        self.camera_position.2 += 0.5;
+    }
+
+    fn move_back(&mut self) {
+        self.camera_position.2 -= 0.5;
+    }
+
+    fn rotate_left(&mut self) {
+        self.camera_rotation += 5.0;
+    }
+
+    fn rotate_right(&mut self) {
+        self.camera_rotation -= 5.0;
     }
 }

@@ -1,4 +1,4 @@
-use crate::{Canvas, Color, Matrix, Vec3};
+use crate::{Canvas, Color, Matrix, Renderer, Vec3};
 
 #[derive(Clone, Copy)]
 pub struct Point(pub i32, pub i32);
@@ -91,13 +91,14 @@ struct Model<'a> {
 
 struct Transform {
     scale: f64,
-    rotation: Matrix,
+    rotation: f64,
     position: Vec3,
 }
 
 impl Transform {
     fn matrix(&self) -> Matrix {
-        Matrix::translation(self.position) * (self.rotation * Matrix::scaling(self.scale))
+        Matrix::translation(self.position)
+            * (Matrix::rotation_y(self.rotation) * Matrix::scaling(self.scale))
     }
 }
 
@@ -108,7 +109,109 @@ struct Instance<'a> {
 
 struct Camera {
     position: Vec3,
-    orientation: Matrix,
+    rotation: f64,
+}
+
+pub struct Rasterizer<'a> {
+    camera: Camera,
+    instances: &'a [Instance<'a>],
+}
+
+impl<'a> Rasterizer<'a> {
+    const CUBE_MODEL: Model<'a> = Model {
+        vertices: &[
+            Vec3(1.0, 1.0, 1.0),
+            Vec3(-1.0, 1.0, 1.0),
+            Vec3(-1.0, -1.0, 1.0),
+            Vec3(1.0, -1.0, 1.0),
+            Vec3(1.0, 1.0, -1.0),
+            Vec3(-1.0, 1.0, -1.0),
+            Vec3(-1.0, -1.0, -1.0),
+            Vec3(1.0, -1.0, -1.0),
+        ],
+        triangles: &[
+            Triangle(0, 1, 2, Color::RED),
+            Triangle(0, 2, 3, Color::RED),
+            Triangle(4, 0, 3, Color::GREEN),
+            Triangle(4, 3, 7, Color::GREEN),
+            Triangle(5, 4, 7, Color::BLUE),
+            Triangle(5, 7, 6, Color::BLUE),
+            Triangle(1, 5, 6, Color::YELLOW),
+            Triangle(1, 6, 2, Color::YELLOW),
+            Triangle(4, 5, 1, Color::PURPLE),
+            Triangle(4, 1, 0, Color::PURPLE),
+            Triangle(2, 6, 7, Color::CYAN),
+            Triangle(2, 7, 3, Color::CYAN),
+        ],
+    };
+    pub const DEFAULT_SCENE: Self = Self {
+        camera: Camera {
+            position: Vec3(-3.0, 1.0, 2.0),
+            rotation: -30.0,
+        },
+        instances: &[
+            Instance {
+                model: &Self::CUBE_MODEL,
+                transform: Transform {
+                    scale: 0.75,
+                    rotation: 0.0,
+                    position: Vec3(-1.5, 0.0, 7.0),
+                },
+            },
+            Instance {
+                model: &Self::CUBE_MODEL,
+                transform: Transform {
+                    scale: 1.0,
+                    rotation: 195.0,
+                    position: Vec3(1.25, 2.0, 7.5),
+                },
+            },
+        ],
+    };
+}
+
+impl<'a> Renderer for Rasterizer<'a> {
+    fn render(&self, canvas: &mut Canvas) {
+        let camera_matrix = Matrix::rotation_y(self.camera.rotation).transpose()
+            * Matrix::translation(-1.0 * self.camera.position);
+
+        for instance in self.instances {
+            let transform_matrix = camera_matrix * instance.transform.matrix();
+            render_model(canvas, instance.model, transform_matrix);
+        }
+    }
+
+    fn move_up(&mut self) {
+        self.camera.position.1 += 0.5;
+    }
+
+    fn move_down(&mut self) {
+        self.camera.position.1 -= 0.5;
+    }
+
+    fn move_left(&mut self) {
+        self.camera.position.0 -= 0.05;
+    }
+
+    fn move_right(&mut self) {
+        self.camera.position.0 += 0.05;
+    }
+
+    fn move_front(&mut self) {
+        self.camera.position.2 += 0.05;
+    }
+
+    fn move_back(&mut self) {
+        self.camera.position.2 -= 0.05;
+    }
+
+    fn rotate_left(&mut self) {
+        self.camera.rotation += 5.0;
+    }
+
+    fn rotate_right(&mut self) {
+        self.camera.rotation -= 5.0;
+    }
 }
 
 fn render_model(canvas: &mut Canvas, model: &Model, transform_matrix: Matrix) {
@@ -121,80 +224,4 @@ fn render_model(canvas: &mut Canvas, model: &Model, transform_matrix: Matrix) {
     for t in model.triangles {
         render_triangle(canvas, t, &projected);
     }
-}
-
-fn render_scene(canvas: &mut Canvas, camera: Camera, instances: &[Instance]) {
-    let camera_matrix =
-        camera.orientation.transpose() * Matrix::translation(-1.0 * camera.position);
-
-    for instance in instances {
-        let transform_matrix = camera_matrix * instance.transform.matrix();
-        render_model(canvas, instance.model, transform_matrix);
-    }
-}
-
-pub fn draw_example_scene(canvas: &mut Canvas) {
-    let vertices = [
-        Vec3(1.0, 1.0, 1.0),
-        Vec3(-1.0, 1.0, 1.0),
-        Vec3(-1.0, -1.0, 1.0),
-        Vec3(1.0, -1.0, 1.0),
-        Vec3(1.0, 1.0, -1.0),
-        Vec3(-1.0, 1.0, -1.0),
-        Vec3(-1.0, -1.0, -1.0),
-        Vec3(1.0, -1.0, -1.0),
-    ];
-
-    let red = Color(255, 0, 0);
-    let green = Color(0, 255, 0);
-    let blue = Color(0, 0, 255);
-    let yellow = Color(255, 255, 0);
-    let purple = Color(255, 0, 255);
-    let cyan = Color(0, 255, 255);
-
-    let triangles = [
-        Triangle(0, 1, 2, red),
-        Triangle(0, 2, 3, red),
-        Triangle(4, 0, 3, green),
-        Triangle(4, 3, 7, green),
-        Triangle(5, 4, 7, blue),
-        Triangle(5, 7, 6, blue),
-        Triangle(1, 5, 6, yellow),
-        Triangle(1, 6, 2, yellow),
-        Triangle(4, 5, 1, purple),
-        Triangle(4, 1, 0, purple),
-        Triangle(2, 6, 7, cyan),
-        Triangle(2, 7, 3, cyan),
-    ];
-
-    let cube = Model {
-        vertices: &vertices,
-        triangles: &triangles,
-    };
-
-    let instances = [
-        Instance {
-            model: &cube,
-            transform: Transform {
-                scale: 0.75,
-                rotation: Matrix::IDENTITY,
-                position: Vec3(-1.5, 0.0, 7.0),
-            },
-        },
-        Instance {
-            model: &cube,
-            transform: Transform {
-                scale: 1.0,
-                rotation: Matrix::rotation_y(195.0),
-                position: Vec3(1.25, 2.0, 7.5),
-            },
-        },
-    ];
-
-    let camera = Camera {
-        position: Vec3(-3.0, 1.0, 2.0),
-        orientation: Matrix::rotation_y(-30.0),
-    };
-
-    render_scene(canvas, camera, &instances);
 }

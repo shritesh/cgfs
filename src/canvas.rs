@@ -8,10 +8,27 @@ pub struct Canvas {
     buffer: Vec<u32>,
 }
 
+pub trait Renderer {
+    fn render(&self, canvas: &mut Canvas);
+
+    fn move_up(&mut self);
+    fn move_down(&mut self);
+    fn move_left(&mut self);
+    fn move_right(&mut self);
+    fn move_front(&mut self);
+    fn move_back(&mut self);
+
+    fn rotate_left(&mut self);
+    fn rotate_right(&mut self);
+}
+
+const BACKGROUND_COLOR: u32 = 0x00_FF_FF_FF;
+
 impl Canvas {
     pub fn new(title: &str, width: usize, height: usize) -> Self {
-        let buffer: Vec<u32> = vec![0x00_FF_FF_FF; width * height];
-        let window = Window::new(title, width, height, WindowOptions::default()).unwrap();
+        let buffer: Vec<u32> = vec![BACKGROUND_COLOR; width * height];
+        let mut window = Window::new(title, width, height, WindowOptions::default()).unwrap();
+        window.limit_update_rate(Some(std::time::Duration::from_micros(16600)));
 
         Self {
             width,
@@ -45,8 +62,58 @@ impl Canvas {
         self.buffer[sy as usize * self.width + sx as usize] = c;
     }
 
-    pub fn show(&mut self) {
+    fn reset(&mut self) {
+        self.buffer.fill(BACKGROUND_COLOR);
+    }
+
+    pub fn render(&mut self, renderer: &mut impl Renderer) {
+        renderer.render(self);
+
         while self.window.is_open() && !self.window.is_key_down(Key::Escape) {
+            if self.window.is_key_down(Key::W) {
+                renderer.move_front();
+                self.reset();
+                renderer.render(self);
+            }
+            if self.window.is_key_down(Key::S) {
+                renderer.move_back();
+                self.reset();
+                renderer.render(self);
+            }
+            if self.window.is_key_down(Key::A) {
+                renderer.move_left();
+                self.reset();
+                renderer.render(self);
+            }
+            if self.window.is_key_down(Key::D) {
+                renderer.move_right();
+                self.reset();
+                renderer.render(self);
+            }
+
+            if self.window.is_key_down(Key::Up) {
+                renderer.move_up();
+                self.reset();
+                renderer.render(self);
+            }
+
+            if self.window.is_key_down(Key::Down) {
+                renderer.move_down();
+                self.reset();
+                renderer.render(self);
+            }
+            if self.window.is_key_down(Key::Q) {
+                renderer.rotate_left();
+                self.reset();
+                renderer.render(self);
+            }
+
+            if self.window.is_key_down(Key::E) {
+                renderer.rotate_right();
+                self.reset();
+                renderer.render(self);
+            }
+
             self.window
                 .update_with_buffer(&self.buffer, self.width, self.height)
                 .unwrap();
