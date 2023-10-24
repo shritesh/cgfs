@@ -10,6 +10,7 @@ impl Color {
     pub const YELLOW: Self = Self(255, 255, 0);
     pub const PURPLE: Self = Self(255, 0, 255);
     pub const CYAN: Self = Self(0, 255, 255);
+    pub const BLACK: Self = Self(0, 0, 0);
 }
 
 impl Add for Color {

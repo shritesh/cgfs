@@ -73,14 +73,62 @@ fn project_vertex(canvas: &Canvas, v: Vec3) -> Point {
     viewport_to_canvas(canvas, v.0 * DISTANCE / v.2, v.1 * DISTANCE / v.2)
 }
 
+pub fn draw_filled_triangle(
+    canvas: &mut Canvas,
+    mut p0: Point,
+    mut p1: Point,
+    mut p2: Point,
+    color: Color,
+) {
+    // sort according to y
+    if p1.y() < p0.y() {
+        std::mem::swap(&mut p1, &mut p0);
+    }
+    if p2.y() < p0.y() {
+        std::mem::swap(&mut p2, &mut p0);
+    }
+    if p2.y() < p1.y() {
+        std::mem::swap(&mut p2, &mut p1);
+    }
+
+    let mut x01 = interpolate(p0.y(), p0.x(), p1.y(), p1.x());
+    let x12 = interpolate(p1.y(), p1.x(), p2.y(), p2.x());
+    let x02 = interpolate(p0.y(), p0.x(), p2.y(), p2.x());
+
+    _ = x01.pop();
+
+    let x012 = [x01, x12].concat();
+
+    let m = x02.len() / 2;
+    let (x_left, x_right) = if x02[m] < x012[m] {
+        (x02, x012)
+    } else {
+        (x012, x02)
+    };
+
+    for ((left_y, left_x), (right_y, right_x)) in x_left.into_iter().zip(x_right) {
+        assert_eq!(left_y, right_y);
+        for x in (left_x as i32)..=(right_x as i32) {
+            canvas.put_pixel(x, left_y, color)
+        }
+    }
+}
 struct Triangle(pub usize, pub usize, pub usize, pub Color);
 fn render_triangle(canvas: &mut Canvas, triangle: &Triangle, projected: &[Point]) {
-    draw_wireframe_triangle(
+    draw_filled_triangle(
         canvas,
         projected[triangle.0],
         projected[triangle.1],
         projected[triangle.2],
         triangle.3,
+    );
+
+    draw_wireframe_triangle(
+        canvas,
+        projected[triangle.0],
+        projected[triangle.1],
+        projected[triangle.2],
+        Color::BLACK,
     )
 }
 

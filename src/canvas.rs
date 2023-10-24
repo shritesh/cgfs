@@ -81,12 +81,20 @@ impl Canvas {
                 renderer.render(self);
             }
             if self.window.is_key_down(Key::A) {
-                renderer.move_left();
+                if self.window.is_key_down(Key::LeftShift) {
+                    renderer.rotate_left();
+                } else {
+                    renderer.move_left();
+                }
                 self.reset();
                 renderer.render(self);
             }
             if self.window.is_key_down(Key::D) {
-                renderer.move_right();
+                if self.window.is_key_down(Key::LeftShift) {
+                    renderer.rotate_right();
+                } else {
+                    renderer.move_right();
+                }
                 self.reset();
                 renderer.render(self);
             }
@@ -102,18 +110,6 @@ impl Canvas {
                 self.reset();
                 renderer.render(self);
             }
-            if self.window.is_key_down(Key::Q) {
-                renderer.rotate_left();
-                self.reset();
-                renderer.render(self);
-            }
-
-            if self.window.is_key_down(Key::E) {
-                renderer.rotate_right();
-                self.reset();
-                renderer.render(self);
-            }
-
             self.window
                 .update_with_buffer(&self.buffer, self.width, self.height)
                 .unwrap();
