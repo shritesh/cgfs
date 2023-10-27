@@ -1,16 +1,9 @@
 use crate::{Canvas, Color, Matrix, Renderer, Vec3};
 
 #[derive(Clone, Copy)]
-pub struct Point(pub i32, pub i32);
-
-impl Point {
-    pub fn x(&self) -> i32 {
-        self.0
-    }
-
-    pub fn y(&self) -> i32 {
-        self.1
-    }
+pub struct Point {
+    x: i32,
+    y: i32,
 }
 
 fn interpolate<T: Into<f64> + Copy>(i0: i32, d0: T, i1: i32, d1: T) -> Vec<(i32, f64)> {
@@ -31,22 +24,22 @@ fn interpolate<T: Into<f64> + Copy>(i0: i32, d0: T, i1: i32, d1: T) -> Vec<(i32,
 }
 
 pub fn draw_line(canvas: &mut Canvas, mut p0: Point, mut p1: Point, color: Color) {
-    if (p1.x() - p0.x()).abs() > (p1.y() - p0.y()).abs() {
+    if (p1.x - p0.x).abs() > (p1.y - p0.y).abs() {
         // line is horizontal-ish
 
-        if p0.x() > p1.x() {
+        if p0.x > p1.x {
             std::mem::swap(&mut p0, &mut p1);
         }
 
-        for (x, y) in interpolate(p0.x(), p0.y(), p1.x(), p1.y()) {
+        for (x, y) in interpolate(p0.x, p0.y, p1.x, p1.y) {
             canvas.put_pixel(x, y as i32, color);
         }
     } else {
-        if p0.y() > p1.y() {
+        if p0.y > p1.y {
             std::mem::swap(&mut p0, &mut p1);
         }
 
-        for (y, x) in interpolate(p0.y(), p0.x(), p1.y(), p1.x()) {
+        for (y, x) in interpolate(p0.y, p0.x, p1.y, p1.x) {
             canvas.put_pixel(x as i32, y, color);
         }
     }
@@ -63,10 +56,10 @@ const VIEWPORT_HEIGHT: f64 = 1.0;
 const DISTANCE: f64 = 1.0;
 
 fn viewport_to_canvas(canvas: &Canvas, x: f64, y: f64) -> Point {
-    Point(
-        (x * canvas.width() as f64 / VIEWPORT_WIDTH) as i32,
-        (y * canvas.height() as f64 / VIEWPORT_HEIGHT) as i32,
-    )
+    Point {
+        x: (x * canvas.width() as f64 / VIEWPORT_WIDTH) as i32,
+        y: (y * canvas.height() as f64 / VIEWPORT_HEIGHT) as i32,
+    }
 }
 
 fn project_vertex(canvas: &Canvas, v: Vec3) -> Point {
@@ -81,19 +74,19 @@ pub fn draw_filled_triangle(
     color: Color,
 ) {
     // sort according to y
-    if p1.y() < p0.y() {
+    if p1.y < p0.y {
         std::mem::swap(&mut p1, &mut p0);
     }
-    if p2.y() < p0.y() {
+    if p2.y < p0.y {
         std::mem::swap(&mut p2, &mut p0);
     }
-    if p2.y() < p1.y() {
+    if p2.y < p1.y {
         std::mem::swap(&mut p2, &mut p1);
     }
 
-    let mut x01 = interpolate(p0.y(), p0.x(), p1.y(), p1.x());
-    let x12 = interpolate(p1.y(), p1.x(), p2.y(), p2.x());
-    let x02 = interpolate(p0.y(), p0.x(), p2.y(), p2.x());
+    let mut x01 = interpolate(p0.y, p0.x, p1.y, p1.x);
+    let x12 = interpolate(p1.y, p1.x, p2.y, p2.x);
+    let x02 = interpolate(p0.y, p0.x, p2.y, p2.x);
 
     _ = x01.pop();
 
