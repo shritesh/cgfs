@@ -125,9 +125,9 @@ fn render_triangle(canvas: &mut Canvas, triangle: &Triangle, projected: &[Point]
     )
 }
 
-struct Model<'a> {
-    vertices: &'a [Vec3],
-    triangles: &'a [Triangle],
+struct Model {
+    vertices: Vec<Vec3>,
+    triangles: Vec<Triangle>,
 }
 
 struct Transform {
@@ -143,8 +143,8 @@ impl Transform {
     }
 }
 
-struct Instance<'a> {
-    model: &'a Model<'a>,
+struct Instance {
+    model_idx: usize,
     transform: Transform,
 }
 
@@ -153,72 +153,77 @@ struct Camera {
     rotation: f64,
 }
 
-pub struct Rasterizer<'a> {
+pub struct Rasterizer {
     camera: Camera,
-    instances: &'a [Instance<'a>],
+    models: Vec<Model>,
+    instances: Vec<Instance>,
 }
 
-impl<'a> Rasterizer<'a> {
-    const CUBE_MODEL: Model<'a> = Model {
-        vertices: &[
-            Vec3(1.0, 1.0, 1.0),
-            Vec3(-1.0, 1.0, 1.0),
-            Vec3(-1.0, -1.0, 1.0),
-            Vec3(1.0, -1.0, 1.0),
-            Vec3(1.0, 1.0, -1.0),
-            Vec3(-1.0, 1.0, -1.0),
-            Vec3(-1.0, -1.0, -1.0),
-            Vec3(1.0, -1.0, -1.0),
-        ],
-        triangles: &[
-            Triangle(0, 1, 2, Color::RED),
-            Triangle(0, 2, 3, Color::RED),
-            Triangle(4, 0, 3, Color::GREEN),
-            Triangle(4, 3, 7, Color::GREEN),
-            Triangle(5, 4, 7, Color::BLUE),
-            Triangle(5, 7, 6, Color::BLUE),
-            Triangle(1, 5, 6, Color::YELLOW),
-            Triangle(1, 6, 2, Color::YELLOW),
-            Triangle(4, 5, 1, Color::PURPLE),
-            Triangle(4, 1, 0, Color::PURPLE),
-            Triangle(2, 6, 7, Color::CYAN),
-            Triangle(2, 7, 3, Color::CYAN),
-        ],
-    };
-    pub const DEFAULT_SCENE: Self = Self {
-        camera: Camera {
-            position: Vec3(-3.0, 1.0, 2.0),
-            rotation: -30.0,
-        },
-        instances: &[
-            Instance {
-                model: &Self::CUBE_MODEL,
-                transform: Transform {
-                    scale: 0.75,
-                    rotation: 0.0,
-                    position: Vec3(-1.5, 0.0, 7.0),
-                },
+impl Rasterizer {
+    pub fn default_scene() -> Self {
+        let cube = Model {
+            vertices: vec![
+                Vec3(1.0, 1.0, 1.0),
+                Vec3(-1.0, 1.0, 1.0),
+                Vec3(-1.0, -1.0, 1.0),
+                Vec3(1.0, -1.0, 1.0),
+                Vec3(1.0, 1.0, -1.0),
+                Vec3(-1.0, 1.0, -1.0),
+                Vec3(-1.0, -1.0, -1.0),
+                Vec3(1.0, -1.0, -1.0),
+            ],
+            triangles: vec![
+                Triangle(0, 1, 2, Color::RED),
+                Triangle(0, 2, 3, Color::RED),
+                Triangle(4, 0, 3, Color::GREEN),
+                Triangle(4, 3, 7, Color::GREEN),
+                Triangle(5, 4, 7, Color::BLUE),
+                Triangle(5, 7, 6, Color::BLUE),
+                Triangle(1, 5, 6, Color::YELLOW),
+                Triangle(1, 6, 2, Color::YELLOW),
+                Triangle(4, 5, 1, Color::PURPLE),
+                Triangle(4, 1, 0, Color::PURPLE),
+                Triangle(2, 6, 7, Color::CYAN),
+                Triangle(2, 7, 3, Color::CYAN),
+            ],
+        };
+
+        Self {
+            models: vec![cube],
+            camera: Camera {
+                position: Vec3(-3.0, 1.0, 2.0),
+                rotation: -30.0,
             },
-            Instance {
-                model: &Self::CUBE_MODEL,
-                transform: Transform {
-                    scale: 1.0,
-                    rotation: 195.0,
-                    position: Vec3(1.25, 2.0, 7.5),
+            instances: vec![
+                Instance {
+                    model_idx: 0,
+                    transform: Transform {
+                        scale: 0.75,
+                        rotation: 0.0,
+                        position: Vec3(-1.5, 0.0, 7.0),
+                    },
                 },
-            },
-        ],
-    };
+                Instance {
+                    model_idx: 0,
+                    transform: Transform {
+                        scale: 1.0,
+                        rotation: 195.0,
+                        position: Vec3(1.25, 2.0, 7.5),
+                    },
+                },
+            ],
+        }
+    }
 }
 
-impl<'a> Renderer for Rasterizer<'a> {
+impl Renderer for Rasterizer {
     fn render(&self, canvas: &mut Canvas) {
         let camera_matrix = Matrix::rotation_y(self.camera.rotation).transpose()
             * Matrix::translation(-1.0 * self.camera.position);
 
-        for instance in self.instances {
+        for instance in &self.instances {
             let transform_matrix = camera_matrix * instance.transform.matrix();
-            render_model(canvas, instance.model, transform_matrix);
+            render_model(canvas, &self.models[instance.model_idx], transform_matrix);
         }
     }
 
@@ -258,11 +263,11 @@ impl<'a> Renderer for Rasterizer<'a> {
 fn render_model(canvas: &mut Canvas, model: &Model, transform_matrix: Matrix) {
     let projected: Vec<Point> = model
         .vertices
-        .into_iter()
+        .iter()
         .map(|v| project_vertex(canvas, transform_matrix * *v))
         .collect();
 
-    for t in model.triangles {
-        render_triangle(canvas, t, &projected);
+    for t in &model.triangles {
+        render_triangle(canvas, &t, &projected);
     }
 }
