@@ -9,7 +9,7 @@ pub struct Point {
 }
 
 #[derive(Clone, Copy)]
-struct Triangle(pub usize, pub usize, pub usize, pub Color);
+struct Triangle(pub usize, pub usize, pub usize, pub Color, pub [Vec3; 3]);
 
 struct Plane {
     normal: Vec3,
@@ -65,12 +65,21 @@ impl Model {
                 let i0 = d * divs + i;
                 let i1 = (d + 1) * divs + (i + 1) % divs;
                 let i2 = divs * d + (i + 1) % divs;
-                triangles.push(Triangle(i0 as usize, i1 as usize, i2 as usize, color));
+                let tri0 = [i0 as usize, i1 as usize, i2 as usize];
+                let tri1 = [i0 as usize, (i0 + divs) as usize, i1 as usize];
                 triangles.push(Triangle(
-                    i0 as usize,
-                    (i0 + divs) as usize,
-                    i1 as usize,
+                    tri0[0],
+                    tri0[1],
+                    tri0[2],
                     color,
+                    [vertices[tri0[0]], vertices[tri0[1]], vertices[tri0[2]]],
+                ));
+                triangles.push(Triangle(
+                    tri1[0],
+                    tri1[1],
+                    tri1[2],
+                    color,
+                    [vertices[tri1[0]], vertices[tri1[1]], vertices[tri1[2]]],
                 ));
             }
         }
@@ -135,6 +144,7 @@ impl Rasterizer {
         triangle: &Triangle,
         vertices: &[Vec3],
         projected: &[Point],
+        rotation: f64,
     ) {
         let (mut v0, mut v1, mut v2) = (
             vertices[triangle.0],
@@ -157,18 +167,27 @@ impl Rasterizer {
             projected[triangle.2],
         );
 
+        let transform = camera_rotation_matrix * Matrix::rotation_y(rotation);
+        let (mut normal0, mut normal1, mut normal2) = (
+            transform * triangle.4[0],
+            transform * triangle.4[1],
+            transform * triangle.4[2],
+        );
         // sort according to y
         if p1.y < p0.y {
             std::mem::swap(&mut p1, &mut p0);
             std::mem::swap(&mut v1, &mut v0);
+            std::mem::swap(&mut normal1, &mut normal0);
         }
         if p2.y < p0.y {
             std::mem::swap(&mut p2, &mut p0);
             std::mem::swap(&mut v2, &mut v0);
+            std::mem::swap(&mut normal2, &mut normal0);
         }
         if p2.y < p1.y {
             std::mem::swap(&mut p2, &mut p1);
             std::mem::swap(&mut v2, &mut v1);
+            std::mem::swap(&mut normal2, &mut normal1);
         }
 
         let (x02, x012) = edge_interpolate(p0.y, p0.x, p1.y, p1.x, p2.y, p2.x);
@@ -178,9 +197,9 @@ impl Rasterizer {
         let intesity = illumination((v0 + v1 + v2) / 3.0, normal, &self.camera, &self.lights);
 
         // gouraud
-        let i0 = illumination(v0, normal, &self.camera, &self.lights);
-        let i1 = illumination(v1, normal, &self.camera, &self.lights);
-        let i2 = illumination(v2, normal, &self.camera, &self.lights);
+        let i0 = illumination(v0, normal0, &self.camera, &self.lights);
+        let i1 = illumination(v1, normal1, &self.camera, &self.lights);
+        let i2 = illumination(v2, normal2, &self.camera, &self.lights);
         let (i02, i012) = edge_interpolate(p0.y, i0, p1.y, i1, p2.y, i2);
 
         let m = x02.len() / 2;
@@ -222,7 +241,7 @@ impl Rasterizer {
             }
         }
     }
-    fn render_model(&self, canvas: &mut Canvas, model: &Model) {
+    fn render_model(&self, canvas: &mut Canvas, model: &Model, rotation: f64) {
         let projected: Vec<Point> = model
             .vertices
             .iter()
@@ -230,7 +249,7 @@ impl Rasterizer {
             .collect();
 
         for t in &model.triangles {
-            self.render_triangle(canvas, &t, &model.vertices, &projected);
+            self.render_triangle(canvas, &t, &model.vertices, &projected, rotation);
         }
     }
 
@@ -247,18 +266,138 @@ impl Rasterizer {
                 Vec3(1.0, -1.0, -1.0),
             ],
             triangles: vec![
-                Triangle(0, 1, 2, Color::RED),
-                Triangle(0, 2, 3, Color::RED),
-                Triangle(4, 0, 3, Color::GREEN),
-                Triangle(4, 3, 7, Color::GREEN),
-                Triangle(5, 4, 7, Color::BLUE),
-                Triangle(5, 7, 6, Color::BLUE),
-                Triangle(1, 5, 6, Color::YELLOW),
-                Triangle(1, 6, 2, Color::YELLOW),
-                Triangle(4, 5, 1, Color::PURPLE),
-                Triangle(4, 1, 0, Color::PURPLE),
-                Triangle(2, 6, 7, Color::CYAN),
-                Triangle(2, 7, 3, Color::CYAN),
+                Triangle(
+                    0,
+                    1,
+                    2,
+                    Color::RED,
+                    [
+                        Vec3(0.0, 0.0, 1.0),
+                        Vec3(0.0, 0.0, 1.0),
+                        Vec3(0.0, 0.0, 1.0),
+                    ],
+                ),
+                Triangle(
+                    0,
+                    2,
+                    3,
+                    Color::RED,
+                    [
+                        Vec3(0.0, 0.0, 1.0),
+                        Vec3(0.0, 0.0, 1.0),
+                        Vec3(0.0, 0.0, 1.0),
+                    ],
+                ),
+                Triangle(
+                    4,
+                    0,
+                    3,
+                    Color::GREEN,
+                    [
+                        Vec3(1.0, 0.0, 0.0),
+                        Vec3(1.0, 0.0, 0.0),
+                        Vec3(1.0, 0.0, 0.0),
+                    ],
+                ),
+                Triangle(
+                    4,
+                    3,
+                    7,
+                    Color::GREEN,
+                    [
+                        Vec3(1.0, 0.0, 0.0),
+                        Vec3(1.0, 0.0, 0.0),
+                        Vec3(1.0, 0.0, 0.0),
+                    ],
+                ),
+                Triangle(
+                    5,
+                    4,
+                    7,
+                    Color::BLUE,
+                    [
+                        Vec3(0.0, 0.0, -1.0),
+                        Vec3(0.0, 0.0, -1.0),
+                        Vec3(0.0, 0.0, -1.0),
+                    ],
+                ),
+                Triangle(
+                    5,
+                    7,
+                    6,
+                    Color::BLUE,
+                    [
+                        Vec3(0.0, 0.0, -1.0),
+                        Vec3(0.0, 0.0, -1.0),
+                        Vec3(0.0, 0.0, -1.0),
+                    ],
+                ),
+                Triangle(
+                    1,
+                    5,
+                    6,
+                    Color::YELLOW,
+                    [
+                        Vec3(-1.0, 0.0, 0.0),
+                        Vec3(-1.0, 0.0, 0.0),
+                        Vec3(-1.0, 0.0, 0.0),
+                    ],
+                ),
+                Triangle(
+                    1,
+                    6,
+                    2,
+                    Color::YELLOW,
+                    [
+                        Vec3(-1.0, 0.0, 0.0),
+                        Vec3(-1.0, 0.0, 0.0),
+                        Vec3(-1.0, 0.0, 0.0),
+                    ],
+                ),
+                Triangle(
+                    1,
+                    0,
+                    5,
+                    Color::PURPLE,
+                    [
+                        Vec3(0.0, 1.0, 0.0),
+                        Vec3(0.0, 1.0, 0.0),
+                        Vec3(0.0, 1.0, 0.0),
+                    ],
+                ),
+                Triangle(
+                    5,
+                    0,
+                    4,
+                    Color::PURPLE,
+                    [
+                        Vec3(0.0, 1.0, 0.0),
+                        Vec3(0.0, 1.0, 0.0),
+                        Vec3(0.0, 1.0, 0.0),
+                    ],
+                ),
+                Triangle(
+                    2,
+                    6,
+                    7,
+                    Color::CYAN,
+                    [
+                        Vec3(0.0, -1.0, 0.0),
+                        Vec3(0.0, -1.0, 0.0),
+                        Vec3(0.0, -1.0, 0.0),
+                    ],
+                ),
+                Triangle(
+                    2,
+                    7,
+                    3,
+                    Color::CYAN,
+                    [
+                        Vec3(0.0, -1.0, 0.0),
+                        Vec3(0.0, -1.0, 0.0),
+                        Vec3(0.0, -1.0, 0.0),
+                    ],
+                ),
             ],
             bounds_center: Vec3(0.0, 0.0, 0.0),
             bounds_radius: 3.0f64.sqrt(),
@@ -357,7 +496,7 @@ impl Renderer for Rasterizer {
                 instance.transform.scale,
                 transform_matrix,
             ) {
-                self.render_model(canvas, &clipped_model);
+                self.render_model(canvas, &clipped_model, instance.transform.rotation);
             }
         }
     }
