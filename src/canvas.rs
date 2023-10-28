@@ -6,6 +6,7 @@ pub struct Canvas {
     height: usize,
     window: Window,
     buffer: Vec<u32>,
+    depth_buffer: Vec<f64>,
 }
 
 pub trait Renderer {
@@ -26,7 +27,8 @@ const BACKGROUND_COLOR: u32 = 0x00_FF_FF_FF;
 
 impl Canvas {
     pub fn new(title: &str, width: usize, height: usize) -> Self {
-        let buffer: Vec<u32> = vec![BACKGROUND_COLOR; width * height];
+        let buffer = vec![BACKGROUND_COLOR; width * height];
+        let depth_buffer = vec![f64::INFINITY; width * height];
         let mut window = Window::new(title, width, height, WindowOptions::default()).unwrap();
         window.limit_update_rate(Some(std::time::Duration::from_micros(16600)));
 
@@ -35,6 +37,7 @@ impl Canvas {
             height,
             window,
             buffer,
+            depth_buffer,
         }
     }
 
@@ -62,8 +65,29 @@ impl Canvas {
         self.buffer[sy as usize * self.width + sx as usize] = c;
     }
 
+    pub fn update_depth_buffer(&mut self, x: i32, y: i32, z: f64) -> bool {
+        let width = self.width as i32;
+        let height = self.height as i32;
+
+        let sx = width / 2 + x;
+        let sy = height / 2 - y;
+
+        if sx < 0 || sx >= width || sy < 0 || sy >= height {
+            return false;
+        }
+
+        let offset = sy as usize * self.width + sx as usize;
+        if z < self.depth_buffer[offset] {
+            self.depth_buffer[offset] = z;
+            true
+        } else {
+            false
+        }
+    }
+
     fn reset(&mut self) {
         self.buffer.fill(BACKGROUND_COLOR);
+        self.depth_buffer.fill(f64::INFINITY);
     }
 
     pub fn render(&mut self, renderer: &mut impl Renderer) {

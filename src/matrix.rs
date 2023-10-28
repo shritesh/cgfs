@@ -6,13 +6,6 @@ use crate::Vec3;
 pub struct Matrix([[f64; 4]; 4]);
 
 impl Matrix {
-    pub const IDENTITY: Self = Self([
-        [1.0, 0.0, 0.0, 0.0],
-        [0.0, 1.0, 0.0, 0.0],
-        [0.0, 0.0, 1.0, 0.0],
-        [0.0, 0.0, 0.0, 1.0],
-    ]);
-
     pub fn transpose(&self) -> Self {
         let mut output = [[0.0; 4]; 4];
 

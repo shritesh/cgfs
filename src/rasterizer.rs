@@ -76,7 +76,7 @@ impl Rasterizer {
         vertices: &[Vec3],
         projected: &[Point],
     ) {
-        let (v0, v1, v2) = (
+        let (mut v0, mut v1, mut v2) = (
             vertices[triangle.0],
             vertices[triangle.1],
             vertices[triangle.2],
@@ -86,21 +86,53 @@ impl Rasterizer {
         if vertex_to_camera.dot(triangle_normal(v0, v1, v2)) <= 0.0 {
             return;
         }
-        draw_filled_triangle(
-            canvas,
+
+        let (mut p0, mut p1, mut p2) = (
             projected[triangle.0],
             projected[triangle.1],
             projected[triangle.2],
-            triangle.3,
         );
 
-        draw_wireframe_triangle(
-            canvas,
-            projected[triangle.0],
-            projected[triangle.1],
-            projected[triangle.2],
-            Color::BLACK,
-        )
+        // sort according to y
+        if p1.y < p0.y {
+            std::mem::swap(&mut p1, &mut p0);
+            std::mem::swap(&mut v1, &mut v0);
+        }
+        if p2.y < p0.y {
+            std::mem::swap(&mut p2, &mut p0);
+            std::mem::swap(&mut v2, &mut v0);
+        }
+        if p2.y < p1.y {
+            std::mem::swap(&mut p2, &mut p1);
+            std::mem::swap(&mut v2, &mut v1);
+        }
+
+        let (x02, x012) = edge_interpolate(p0.y, p0.x, p1.y, p1.x, p2.y, p2.x);
+        let (z02, z012) = edge_interpolate(p0.y, 1.0 / v0.2, p1.y, 1.0 / v1.2, p2.y, 1.0 / v2.2);
+
+        let m = x02.len() / 2;
+        let (x_left, x_right, z_left, z_right) = if x02[m] < x012[m] {
+            (x02, x012, z02, z012)
+        } else {
+            (x012, x02, z012, z02)
+        };
+
+        for ((((y, left_x), right_x), left_z), right_z) in (p0.y..=p2.y)
+            .zip(x_left)
+            .zip(x_right)
+            .zip(z_left)
+            .zip(z_right)
+        {
+            let (lx, rx) = (left_x as i32, right_x as i32);
+
+            for (x, z) in (lx..=rx).zip(interpolate(lx, left_z, rx, right_z)) {
+                if canvas.update_depth_buffer(x, y, z) {
+                    canvas.put_pixel(x, y, triangle.3);
+                }
+            }
+        }
+
+        draw_wireframe_triangle(canvas, p0, p1, p2, Color::BLACK)
     }
     fn render_model(&self, canvas: &mut Canvas, model: &Model) {
         let projected: Vec<Point> = model
@@ -373,38 +405,4 @@ pub fn draw_wireframe_triangle(canvas: &mut Canvas, p0: Point, p1: Point, p2: Po
     draw_line(canvas, p0, p1, color);
     draw_line(canvas, p1, p2, color);
     draw_line(canvas, p2, p0, color);
-}
-
-pub fn draw_filled_triangle(
-    canvas: &mut Canvas,
-    mut p0: Point,
-    mut p1: Point,
-    mut p2: Point,
-    color: Color,
-) {
-    // sort according to y
-    if p1.y < p0.y {
-        std::mem::swap(&mut p1, &mut p0);
-    }
-    if p2.y < p0.y {
-        std::mem::swap(&mut p2, &mut p0);
-    }
-    if p2.y < p1.y {
-        std::mem::swap(&mut p2, &mut p1);
-    }
-
-    let (x02, x012) = edge_interpolate(p0.y, p0.x, p1.y, p1.x, p2.y, p2.x);
-
-    let m = x02.len() / 2;
-    let (x_left, x_right) = if x02[m] < x012[m] {
-        (x02, x012)
-    } else {
-        (x012, x02)
-    };
-
-    for ((y, left_x), right_x) in (p0.y..=p2.y).zip(x_left).zip(x_right) {
-        for x in (left_x as i32)..=(right_x as i32) {
-            canvas.put_pixel(x, y, color)
-        }
-    }
 }
