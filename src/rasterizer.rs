@@ -6,16 +6,16 @@ pub struct Point {
     y: i32,
 }
 
-fn interpolate<T: Into<f64> + Copy>(i0: i32, d0: T, i1: i32, d1: T) -> Vec<(i32, f64)> {
+fn interpolate<T: Into<f64> + Copy>(i0: i32, d0: T, i1: i32, d1: T) -> Vec<f64> {
     let mut values = Vec::new();
 
     if i0 == i1 {
-        values.push((i0, d0.into()));
+        values.push(d0.into());
     } else {
         let a = (d1.into() - d0.into()) / (i1 - i0) as f64;
         let mut d = d0.into();
-        for i in i0..=i1 {
-            values.push((i, d));
+        for _ in i0..=i1 {
+            values.push(d);
             d += a;
         }
     }
@@ -30,7 +30,7 @@ fn edge_interpolate<T: Into<f64> + Copy>(
     x1: T,
     y2: i32,
     x2: T,
-) -> (Vec<(i32, f64)>, Vec<(i32, f64)>) {
+) -> (Vec<f64>, Vec<f64>) {
     let mut x01 = interpolate(y0, x0, y1, x1);
     let x12 = interpolate(y1, x1, y2, x2);
     let x02 = interpolate(y0, x0, y2, x2);
@@ -83,10 +83,9 @@ pub fn draw_filled_triangle(
         (x012, x02)
     };
 
-    for ((left_y, left_x), (right_y, right_x)) in x_left.into_iter().zip(x_right) {
-        assert_eq!(left_y, right_y);
+    for ((y, left_x), right_x) in (p0.y..=p2.y).zip(x_left).zip(x_right) {
         for x in (left_x as i32)..=(right_x as i32) {
-            canvas.put_pixel(x, left_y, color)
+            canvas.put_pixel(x, y, color)
         }
     }
 }
@@ -369,7 +368,7 @@ pub fn draw_line(canvas: &mut Canvas, mut p0: Point, mut p1: Point, color: Color
             std::mem::swap(&mut p0, &mut p1);
         }
 
-        for (x, y) in interpolate(p0.x, p0.y, p1.x, p1.y) {
+        for (x, y) in (p0.x..=p1.x).zip(interpolate(p0.x, p0.y, p1.x, p1.y)) {
             canvas.put_pixel(x, y as i32, color);
         }
     } else {
@@ -377,7 +376,7 @@ pub fn draw_line(canvas: &mut Canvas, mut p0: Point, mut p1: Point, color: Color
             std::mem::swap(&mut p0, &mut p1);
         }
 
-        for (y, x) in interpolate(p0.y, p0.x, p1.y, p1.x) {
+        for (y, x) in (p0.y..=p1.y).zip(interpolate(p0.y, p0.x, p1.y, p1.x)) {
             canvas.put_pixel(x as i32, y, color);
         }
     }
