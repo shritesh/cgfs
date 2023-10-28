@@ -1,3 +1,5 @@
+use std::f64::consts::PI;
+
 use crate::{Canvas, Color, Matrix, Renderer, Vec3};
 
 #[derive(Clone, Copy)]
@@ -38,6 +40,50 @@ struct Model {
     bounds_radius: f64,
 }
 
+impl Model {
+    fn sphere(divs: u32, color: Color) -> Self {
+        let delta_angle = 2.0 * PI / divs as f64;
+
+        let mut vertices = Vec::new();
+        let mut triangles = Vec::new();
+
+        for d in 0..=divs {
+            let y = (2.0 / divs as f64) * (d as f64 - divs as f64 / 2.0);
+            let radius = (1.0 - y * y).sqrt();
+            for i in 0..divs {
+                let vertex = Vec3(
+                    radius * (i as f64 * delta_angle).cos(),
+                    y,
+                    radius * (i as f64 * delta_angle).sin(),
+                );
+                vertices.push(vertex);
+            }
+        }
+
+        for d in 0..divs {
+            for i in 0..divs {
+                let i0 = d * divs + i;
+                let i1 = (d + 1) * divs + (i + 1) % divs;
+                let i2 = divs * d + (i + 1) % divs;
+                triangles.push(Triangle(i0 as usize, i1 as usize, i2 as usize, color));
+                triangles.push(Triangle(
+                    i0 as usize,
+                    (i0 + divs) as usize,
+                    i1 as usize,
+                    color,
+                ));
+            }
+        }
+
+        Model {
+            vertices,
+            triangles,
+            bounds_center: Vec3(0.0, 0.0, 0.0),
+            bounds_radius: 1.0,
+        }
+    }
+}
+
 struct Transform {
     scale: f64,
     rotation: f64,
@@ -62,10 +108,17 @@ struct Camera {
     clipping_planes: Vec<Plane>,
 }
 
+pub enum Light {
+    Point { position: Vec3, intensity: f64 },
+    Directional { direction: Vec3, intensity: f64 },
+    Ambient { intensity: f64 },
+}
+
 pub struct Rasterizer {
     camera: Camera,
     models: Vec<Model>,
     instances: Vec<Instance>,
+    lights: Vec<Light>,
 }
 
 impl Rasterizer {
@@ -135,7 +188,7 @@ impl Rasterizer {
             }
         }
 
-        draw_wireframe_triangle(canvas, p0, p1, p2, Color::BLACK)
+        // draw_wireframe_triangle(canvas, p0, p1, p2, Color::BLACK)
     }
     fn render_model(&self, canvas: &mut Canvas, model: &Model) {
         let projected: Vec<Point> = model
@@ -179,10 +232,12 @@ impl Rasterizer {
             bounds_radius: 3.0f64.sqrt(),
         };
 
+        let sphere = Model::sphere(15, Color::GREEN);
+
         let s2 = 1.0 / 2.0f64.sqrt();
 
         Self {
-            models: vec![cube],
+            models: vec![cube, sphere],
             camera: Camera {
                 position: Vec3(-3.0, 1.0, 2.0),
                 rotation: -30.0,
@@ -230,6 +285,25 @@ impl Rasterizer {
                         rotation: 195.0,
                         position: Vec3(1.25, 2.0, 7.5),
                     },
+                },
+                Instance {
+                    model_idx: 1,
+                    transform: Transform {
+                        scale: 1.75,
+                        rotation: 0.0,
+                        position: Vec3(1.75, -0.5, 7.0),
+                    },
+                },
+            ],
+            lights: vec![
+                Light::Ambient { intensity: 0.2 },
+                Light::Directional {
+                    direction: Vec3(1.0, 0.0, 1.0),
+                    intensity: 0.2,
+                },
+                Light::Point {
+                    position: Vec3(-3.0, 2.0, -10.0),
+                    intensity: 0.6,
                 },
             ],
         }
