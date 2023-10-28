@@ -108,10 +108,16 @@ struct Camera {
     clipping_planes: Vec<Plane>,
 }
 
-pub enum Light {
+enum Light {
     Point { position: Vec3, intensity: f64 },
     Directional { direction: Vec3, intensity: f64 },
     Ambient { intensity: f64 },
+}
+
+enum ShadingModel {
+    Flat,
+    Gouraud,
+    Phong,
 }
 
 pub struct Rasterizer {
@@ -119,6 +125,7 @@ pub struct Rasterizer {
     models: Vec<Model>,
     instances: Vec<Instance>,
     lights: Vec<Light>,
+    shading_model: ShadingModel,
 }
 
 impl Rasterizer {
@@ -135,11 +142,12 @@ impl Rasterizer {
             vertices[triangle.2],
         );
 
+        let normal = triangle_normal(v0, v1, v2);
         // backface culling
         let camera_rotation_matrix = Matrix::rotation_y(self.camera.rotation).transpose();
         let vertex_to_camera =
             camera_rotation_matrix * self.camera.position - camera_rotation_matrix * v0;
-        if vertex_to_camera.dot(triangle_normal(v0, v1, v2)) <= 0.0 {
+        if vertex_to_camera.dot(normal) <= 0.0 {
             return;
         }
 
@@ -173,6 +181,9 @@ impl Rasterizer {
             (x012, x02, z012, z02)
         };
 
+        let center = (v0 + v1 + v2) / 3.0;
+        let intesity = illumination(center, normal, &self.camera, &self.lights);
+
         for ((((y, left_x), right_x), left_z), right_z) in (p0.y..=p2.y)
             .zip(x_left)
             .zip(x_right)
@@ -183,12 +194,10 @@ impl Rasterizer {
 
             for (x, z) in (lx..=rx).zip(interpolate(lx, left_z, rx, right_z)) {
                 if canvas.update_depth_buffer(x, y, z) {
-                    canvas.put_pixel(x, y, triangle.3);
+                    canvas.put_pixel(x, y, triangle.3 * intesity);
                 }
             }
         }
-
-        // draw_wireframe_triangle(canvas, p0, p1, p2, Color::BLACK)
     }
     fn render_model(&self, canvas: &mut Canvas, model: &Model) {
         let projected: Vec<Point> = model
@@ -306,6 +315,7 @@ impl Rasterizer {
                     intensity: 0.6,
                 },
             ],
+            shading_model: ShadingModel::Flat,
         }
     }
 }
@@ -441,6 +451,54 @@ fn triangle_normal(v0: Vec3, v1: Vec3, v2: Vec3) -> Vec3 {
     (v1 - v0).cross(v2 - v0)
 }
 
+fn illumination(vertex: Vec3, normal: Vec3, camera: &Camera, lights: &[Light]) -> f64 {
+    let mut il = 0.0;
+
+    for light in lights {
+        let (intensity, vector) = match light {
+            Light::Ambient { intensity } => {
+                il += intensity;
+                continue;
+            }
+
+            Light::Directional {
+                direction,
+                intensity,
+            } => {
+                let camera_matrix = Matrix::rotation_y(camera.rotation).transpose();
+                (intensity, camera_matrix * *direction)
+            }
+
+            Light::Point {
+                position,
+                intensity,
+            } => {
+                let camera_matrix = Matrix::rotation_y(camera.rotation).transpose()
+                    * Matrix::translation(-camera.position);
+                (intensity, camera_matrix * *position + -vertex)
+            }
+        };
+
+        // diffuse
+        let cos_alpha = vector.dot(normal) / (vector.length() * normal.length());
+        if cos_alpha > 0.0 {
+            il += cos_alpha * intensity;
+        }
+
+        //specular
+        let reflected = vector.reflect(normal);
+        let view = camera.position - vertex;
+
+        let cos_beta = reflected.dot(view) / (reflected.length() * view.length());
+        if cos_beta > 0.0 {
+            let specular = 50.0;
+            il += cos_beta.powf(specular) * intensity;
+        }
+    }
+
+    il
+}
+
 const VIEWPORT_WIDTH: f64 = 1.0;
 const VIEWPORT_HEIGHT: f64 = 1.0;
 const DISTANCE: f64 = 1.0;
@@ -454,32 +512,4 @@ fn viewport_to_canvas(canvas: &Canvas, x: f64, y: f64) -> Point {
 
 fn project_vertex(canvas: &Canvas, v: Vec3) -> Point {
     viewport_to_canvas(canvas, v.0 * DISTANCE / v.2, v.1 * DISTANCE / v.2)
-}
-
-pub fn draw_line(canvas: &mut Canvas, mut p0: Point, mut p1: Point, color: Color) {
-    if (p1.x - p0.x).abs() > (p1.y - p0.y).abs() {
-        // line is horizontal-ish
-
-        if p0.x > p1.x {
-            std::mem::swap(&mut p0, &mut p1);
-        }
-
-        for (x, y) in (p0.x..=p1.x).zip(interpolate(p0.x, p0.y, p1.x, p1.y)) {
-            canvas.put_pixel(x, y as i32, color);
-        }
-    } else {
-        if p0.y > p1.y {
-            std::mem::swap(&mut p0, &mut p1);
-        }
-
-        for (y, x) in (p0.y..=p1.y).zip(interpolate(p0.y, p0.x, p1.y, p1.x)) {
-            canvas.put_pixel(x as i32, y, color);
-        }
-    }
-}
-
-pub fn draw_wireframe_triangle(canvas: &mut Canvas, p0: Point, p1: Point, p2: Point, color: Color) {
-    draw_line(canvas, p0, p1, color);
-    draw_line(canvas, p1, p2, color);
-    draw_line(canvas, p2, p0, color);
 }
