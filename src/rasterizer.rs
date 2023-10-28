@@ -106,6 +106,7 @@ pub fn draw_filled_triangle(
         }
     }
 }
+#[derive(Clone, Copy)]
 struct Triangle(pub usize, pub usize, pub usize, pub Color);
 fn render_triangle(canvas: &mut Canvas, triangle: &Triangle, projected: &[Point]) {
     draw_filled_triangle(
@@ -125,9 +126,33 @@ fn render_triangle(canvas: &mut Canvas, triangle: &Triangle, projected: &[Point]
     )
 }
 
+struct Plane {
+    normal: Vec3,
+    distance: f64,
+}
+
+impl Plane {
+    fn signed_distance(&self, vertex: Vec3) -> f64 {
+        self.normal.dot(vertex) + self.distance
+    }
+
+    fn clip_count(&self, triangle: &Triangle, vertices: &[Vec3]) -> usize {
+        let v0 = vertices[triangle.0];
+        let v1 = vertices[triangle.1];
+        let v2 = vertices[triangle.2];
+
+        [v0, v1, v2]
+            .into_iter()
+            .filter(|v| self.signed_distance(*v) > 0.0)
+            .count()
+    }
+}
+
 struct Model {
     vertices: Vec<Vec3>,
     triangles: Vec<Triangle>,
+    bounds_center: Vec3,
+    bounds_radius: f64,
 }
 
 struct Transform {
@@ -151,6 +176,7 @@ struct Instance {
 struct Camera {
     position: Vec3,
     rotation: f64,
+    clipping_planes: Vec<Plane>,
 }
 
 pub struct Rasterizer {
@@ -186,13 +212,44 @@ impl Rasterizer {
                 Triangle(2, 6, 7, Color::CYAN),
                 Triangle(2, 7, 3, Color::CYAN),
             ],
+            bounds_center: Vec3(0.0, 0.0, 0.0),
+            bounds_radius: 3.0f64.sqrt(),
         };
+
+        let s2 = 1.0 / 2.0f64.sqrt();
 
         Self {
             models: vec![cube],
             camera: Camera {
                 position: Vec3(-3.0, 1.0, 2.0),
                 rotation: -30.0,
+                clipping_planes: vec![
+                    Plane {
+                        // near
+                        normal: Vec3(0.0, 0.0, 1.0),
+                        distance: -1.0,
+                    },
+                    Plane {
+                        // left
+                        normal: Vec3(s2, 0.0, s2),
+                        distance: 0.0,
+                    },
+                    Plane {
+                        // right
+                        normal: Vec3(-s2, 0.0, s2),
+                        distance: 0.0,
+                    },
+                    Plane {
+                        // top
+                        normal: Vec3(0.0, -s2, s2),
+                        distance: 0.0,
+                    },
+                    Plane {
+                        // bottom
+                        normal: Vec3(0.0, s2, s2),
+                        distance: 0.0,
+                    },
+                ],
             },
             instances: vec![
                 Instance {
@@ -223,7 +280,15 @@ impl Renderer for Rasterizer {
 
         for instance in &self.instances {
             let transform_matrix = camera_matrix * instance.transform.matrix();
-            render_model(canvas, &self.models[instance.model_idx], transform_matrix);
+
+            if let Some(clipped_model) = transform_and_clip(
+                &self.camera.clipping_planes,
+                &self.models[instance.model_idx],
+                instance.transform.scale,
+                transform_matrix,
+            ) {
+                render_model(canvas, &clipped_model);
+            }
         }
     }
 
@@ -260,14 +325,54 @@ impl Renderer for Rasterizer {
     }
 }
 
-fn render_model(canvas: &mut Canvas, model: &Model, transform_matrix: Matrix) {
+fn render_model(canvas: &mut Canvas, model: &Model) {
     let projected: Vec<Point> = model
         .vertices
         .iter()
-        .map(|v| project_vertex(canvas, transform_matrix * *v))
+        .map(|v| project_vertex(canvas, *v))
         .collect();
 
     for t in &model.triangles {
         render_triangle(canvas, &t, &projected);
     }
+}
+
+fn transform_and_clip(
+    clipping_planes: &[Plane],
+    model: &Model,
+    scale: f64,
+    transform_matrix: Matrix,
+) -> Option<Model> {
+    let center = transform_matrix * model.bounds_center;
+    let radius = model.bounds_radius * scale;
+
+    if clipping_planes
+        .iter()
+        .any(|cp| cp.signed_distance(center) < -radius)
+    {
+        return None;
+    }
+
+    let vertices: Vec<_> = model
+        .vertices
+        .iter()
+        .map(|v| transform_matrix * *v)
+        .collect();
+
+    // TODO: Generate new vertices for other clip counts
+    let triangles = clipping_planes
+        .iter()
+        .fold(model.triangles.clone(), |triangles, plane| {
+            triangles
+                .into_iter()
+                .filter(|t| plane.clip_count(t, &vertices) == 3)
+                .collect()
+        });
+
+    Some(Model {
+        vertices,
+        triangles,
+        bounds_center: model.bounds_center,
+        bounds_radius: model.bounds_radius,
+    })
 }
