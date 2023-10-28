@@ -174,28 +174,51 @@ impl Rasterizer {
         let (x02, x012) = edge_interpolate(p0.y, p0.x, p1.y, p1.x, p2.y, p2.x);
         let (z02, z012) = edge_interpolate(p0.y, 1.0 / v0.2, p1.y, 1.0 / v1.2, p2.y, 1.0 / v2.2);
 
+        // flat
+        let intesity = illumination((v0 + v1 + v2) / 3.0, normal, &self.camera, &self.lights);
+
+        // gouraud
+        let i0 = illumination(v0, normal, &self.camera, &self.lights);
+        let i1 = illumination(v1, normal, &self.camera, &self.lights);
+        let i2 = illumination(v2, normal, &self.camera, &self.lights);
+        let (i02, i012) = edge_interpolate(p0.y, i0, p1.y, i1, p2.y, i2);
+
         let m = x02.len() / 2;
-        let (x_left, x_right, z_left, z_right) = if x02[m] < x012[m] {
-            (x02, x012, z02, z012)
+        let (x_left, x_right, z_left, z_right, i_left, i_right) = if x02[m] < x012[m] {
+            (x02, x012, z02, z012, i02, i012)
         } else {
-            (x012, x02, z012, z02)
+            (x012, x02, z012, z02, i012, i02)
         };
 
-        let center = (v0 + v1 + v2) / 3.0;
-        let intesity = illumination(center, normal, &self.camera, &self.lights);
-
-        for ((((y, left_x), right_x), left_z), right_z) in (p0.y..=p2.y)
+        for ((((((y, left_x), right_x), left_z), right_z), left_i), right_i) in (p0.y..=p2.y)
             .zip(x_left)
             .zip(x_right)
             .zip(z_left)
             .zip(z_right)
+            .zip(i_left)
+            .zip(i_right)
         {
             let (lx, rx) = (left_x as i32, right_x as i32);
 
-            for (x, z) in (lx..=rx).zip(interpolate(lx, left_z, rx, right_z)) {
-                if canvas.update_depth_buffer(x, y, z) {
-                    canvas.put_pixel(x, y, triangle.3 * intesity);
+            match self.shading_model {
+                ShadingModel::Flat => {
+                    for (x, z) in (lx..=rx).zip(interpolate(lx, left_z, rx, right_z)) {
+                        if canvas.update_depth_buffer(x, y, z) {
+                            canvas.put_pixel(x, y, triangle.3 * intesity);
+                        }
+                    }
                 }
+                ShadingModel::Gouraud => {
+                    for ((x, z), i) in (lx..=rx)
+                        .zip(interpolate(lx, left_z, rx, right_z))
+                        .zip(interpolate(lx, left_i, rx, right_i))
+                    {
+                        if canvas.update_depth_buffer(x, y, z) {
+                            canvas.put_pixel(x, y, triangle.3 * i);
+                        }
+                    }
+                }
+                ShadingModel::Phong => todo!(),
             }
         }
     }
@@ -315,7 +338,7 @@ impl Rasterizer {
                     intensity: 0.6,
                 },
             ],
-            shading_model: ShadingModel::Flat,
+            shading_model: ShadingModel::Gouraud,
         }
     }
 }
