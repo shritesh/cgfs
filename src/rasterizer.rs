@@ -6,108 +6,8 @@ pub struct Point {
     y: i32,
 }
 
-fn interpolate<T: Into<f64> + Copy>(i0: i32, d0: T, i1: i32, d1: T) -> Vec<f64> {
-    let mut values = Vec::new();
-
-    if i0 == i1 {
-        values.push(d0.into());
-    } else {
-        let a = (d1.into() - d0.into()) / (i1 - i0) as f64;
-        let mut d = d0.into();
-        for _ in i0..=i1 {
-            values.push(d);
-            d += a;
-        }
-    }
-
-    values
-}
-
-fn edge_interpolate<T: Into<f64> + Copy>(
-    y0: i32,
-    x0: T,
-    y1: i32,
-    x1: T,
-    y2: i32,
-    x2: T,
-) -> (Vec<f64>, Vec<f64>) {
-    let mut x01 = interpolate(y0, x0, y1, x1);
-    let x12 = interpolate(y1, x1, y2, x2);
-    let x02 = interpolate(y0, x0, y2, x2);
-
-    _ = x01.pop();
-    let x012 = [x01, x12].concat();
-
-    (x02, x012)
-}
-
-const VIEWPORT_WIDTH: f64 = 1.0;
-const VIEWPORT_HEIGHT: f64 = 1.0;
-const DISTANCE: f64 = 1.0;
-
-fn viewport_to_canvas(canvas: &Canvas, x: f64, y: f64) -> Point {
-    Point {
-        x: (x * canvas.width() as f64 / VIEWPORT_WIDTH) as i32,
-        y: (y * canvas.height() as f64 / VIEWPORT_HEIGHT) as i32,
-    }
-}
-
-fn project_vertex(canvas: &Canvas, v: Vec3) -> Point {
-    viewport_to_canvas(canvas, v.0 * DISTANCE / v.2, v.1 * DISTANCE / v.2)
-}
-
-pub fn draw_filled_triangle(
-    canvas: &mut Canvas,
-    mut p0: Point,
-    mut p1: Point,
-    mut p2: Point,
-    color: Color,
-) {
-    // sort according to y
-    if p1.y < p0.y {
-        std::mem::swap(&mut p1, &mut p0);
-    }
-    if p2.y < p0.y {
-        std::mem::swap(&mut p2, &mut p0);
-    }
-    if p2.y < p1.y {
-        std::mem::swap(&mut p2, &mut p1);
-    }
-
-    let (x02, x012) = edge_interpolate(p0.y, p0.x, p1.y, p1.x, p2.y, p2.x);
-
-    let m = x02.len() / 2;
-    let (x_left, x_right) = if x02[m] < x012[m] {
-        (x02, x012)
-    } else {
-        (x012, x02)
-    };
-
-    for ((y, left_x), right_x) in (p0.y..=p2.y).zip(x_left).zip(x_right) {
-        for x in (left_x as i32)..=(right_x as i32) {
-            canvas.put_pixel(x, y, color)
-        }
-    }
-}
 #[derive(Clone, Copy)]
 struct Triangle(pub usize, pub usize, pub usize, pub Color);
-fn render_triangle(canvas: &mut Canvas, triangle: &Triangle, projected: &[Point]) {
-    draw_filled_triangle(
-        canvas,
-        projected[triangle.0],
-        projected[triangle.1],
-        projected[triangle.2],
-        triangle.3,
-    );
-
-    draw_wireframe_triangle(
-        canvas,
-        projected[triangle.0],
-        projected[triangle.1],
-        projected[triangle.2],
-        Color::BLACK,
-    )
-}
 
 struct Plane {
     normal: Vec3,
@@ -169,6 +69,51 @@ pub struct Rasterizer {
 }
 
 impl Rasterizer {
+    fn render_triangle(
+        &self,
+        canvas: &mut Canvas,
+        triangle: &Triangle,
+        vertices: &[Vec3],
+        projected: &[Point],
+    ) {
+        let (v0, v1, v2) = (
+            vertices[triangle.0],
+            vertices[triangle.1],
+            vertices[triangle.2],
+        );
+        // backface culling
+        let vertex_to_camera = self.camera.position - v0;
+        if vertex_to_camera.dot(triangle_normal(v0, v1, v2)) <= 0.0 {
+            return;
+        }
+        draw_filled_triangle(
+            canvas,
+            projected[triangle.0],
+            projected[triangle.1],
+            projected[triangle.2],
+            triangle.3,
+        );
+
+        draw_wireframe_triangle(
+            canvas,
+            projected[triangle.0],
+            projected[triangle.1],
+            projected[triangle.2],
+            Color::BLACK,
+        )
+    }
+    fn render_model(&self, canvas: &mut Canvas, model: &Model) {
+        let projected: Vec<Point> = model
+            .vertices
+            .iter()
+            .map(|v| project_vertex(canvas, *v))
+            .collect();
+
+        for t in &model.triangles {
+            self.render_triangle(canvas, &t, &model.vertices, &projected);
+        }
+    }
+
     pub fn default_scene() -> Self {
         let cube = Model {
             vertices: vec![
@@ -270,7 +215,7 @@ impl Renderer for Rasterizer {
                 instance.transform.scale,
                 transform_matrix,
             ) {
-                render_model(canvas, &clipped_model);
+                self.render_model(canvas, &clipped_model);
             }
         }
     }
@@ -305,18 +250,6 @@ impl Renderer for Rasterizer {
 
     fn rotate_right(&mut self) {
         self.camera.rotation -= 5.0;
-    }
-}
-
-fn render_model(canvas: &mut Canvas, model: &Model) {
-    let projected: Vec<Point> = model
-        .vertices
-        .iter()
-        .map(|v| project_vertex(canvas, *v))
-        .collect();
-
-    for t in &model.triangles {
-        render_triangle(canvas, &t, &projected);
     }
 }
 
@@ -360,6 +293,60 @@ fn transform_and_clip(
     })
 }
 
+fn interpolate<T: Into<f64> + Copy>(i0: i32, d0: T, i1: i32, d1: T) -> Vec<f64> {
+    let mut values = Vec::new();
+
+    if i0 == i1 {
+        values.push(d0.into());
+    } else {
+        let a = (d1.into() - d0.into()) / (i1 - i0) as f64;
+        let mut d = d0.into();
+        for _ in i0..=i1 {
+            values.push(d);
+            d += a;
+        }
+    }
+
+    values
+}
+
+fn edge_interpolate<T: Into<f64> + Copy>(
+    y0: i32,
+    x0: T,
+    y1: i32,
+    x1: T,
+    y2: i32,
+    x2: T,
+) -> (Vec<f64>, Vec<f64>) {
+    let mut x01 = interpolate(y0, x0, y1, x1);
+    let x12 = interpolate(y1, x1, y2, x2);
+    let x02 = interpolate(y0, x0, y2, x2);
+
+    _ = x01.pop();
+    let x012 = [x01, x12].concat();
+
+    (x02, x012)
+}
+
+fn triangle_normal(v0: Vec3, v1: Vec3, v2: Vec3) -> Vec3 {
+    (v1 - v0).cross(v2 - v0)
+}
+
+const VIEWPORT_WIDTH: f64 = 1.0;
+const VIEWPORT_HEIGHT: f64 = 1.0;
+const DISTANCE: f64 = 1.0;
+
+fn viewport_to_canvas(canvas: &Canvas, x: f64, y: f64) -> Point {
+    Point {
+        x: (x * canvas.width() as f64 / VIEWPORT_WIDTH) as i32,
+        y: (y * canvas.height() as f64 / VIEWPORT_HEIGHT) as i32,
+    }
+}
+
+fn project_vertex(canvas: &Canvas, v: Vec3) -> Point {
+    viewport_to_canvas(canvas, v.0 * DISTANCE / v.2, v.1 * DISTANCE / v.2)
+}
+
 pub fn draw_line(canvas: &mut Canvas, mut p0: Point, mut p1: Point, color: Color) {
     if (p1.x - p0.x).abs() > (p1.y - p0.y).abs() {
         // line is horizontal-ish
@@ -386,4 +373,38 @@ pub fn draw_wireframe_triangle(canvas: &mut Canvas, p0: Point, p1: Point, p2: Po
     draw_line(canvas, p0, p1, color);
     draw_line(canvas, p1, p2, color);
     draw_line(canvas, p2, p0, color);
+}
+
+pub fn draw_filled_triangle(
+    canvas: &mut Canvas,
+    mut p0: Point,
+    mut p1: Point,
+    mut p2: Point,
+    color: Color,
+) {
+    // sort according to y
+    if p1.y < p0.y {
+        std::mem::swap(&mut p1, &mut p0);
+    }
+    if p2.y < p0.y {
+        std::mem::swap(&mut p2, &mut p0);
+    }
+    if p2.y < p1.y {
+        std::mem::swap(&mut p2, &mut p1);
+    }
+
+    let (x02, x012) = edge_interpolate(p0.y, p0.x, p1.y, p1.x, p2.y, p2.x);
+
+    let m = x02.len() / 2;
+    let (x_left, x_right) = if x02[m] < x012[m] {
+        (x02, x012)
+    } else {
+        (x012, x02)
+    };
+
+    for ((y, left_x), right_x) in (p0.y..=p2.y).zip(x_left).zip(x_right) {
+        for x in (left_x as i32)..=(right_x as i32) {
+            canvas.put_pixel(x, y, color)
+        }
+    }
 }
