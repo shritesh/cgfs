@@ -55,6 +55,14 @@ impl Vec3 {
         self.0 * rhs.0 + self.1 * rhs.1 + self.2 * rhs.2
     }
 
+    pub fn cross(self, rhs: Self) -> Self {
+        Vec3(
+            self.1 * rhs.2 - self.2 * rhs.1,
+            self.2 * rhs.1 - self.1 * rhs.2,
+            self.0 * rhs.1 - self.1 * rhs.0,
+        )
+    }
+
     pub fn length(self) -> f64 {
         self.dot(self).sqrt()
     }

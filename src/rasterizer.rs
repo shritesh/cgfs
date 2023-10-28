@@ -23,32 +23,22 @@ fn interpolate<T: Into<f64> + Copy>(i0: i32, d0: T, i1: i32, d1: T) -> Vec<(i32,
     values
 }
 
-pub fn draw_line(canvas: &mut Canvas, mut p0: Point, mut p1: Point, color: Color) {
-    if (p1.x - p0.x).abs() > (p1.y - p0.y).abs() {
-        // line is horizontal-ish
+fn edge_interpolate<T: Into<f64> + Copy>(
+    y0: i32,
+    x0: T,
+    y1: i32,
+    x1: T,
+    y2: i32,
+    x2: T,
+) -> (Vec<(i32, f64)>, Vec<(i32, f64)>) {
+    let mut x01 = interpolate(y0, x0, y1, x1);
+    let x12 = interpolate(y1, x1, y2, x2);
+    let x02 = interpolate(y0, x0, y2, x2);
 
-        if p0.x > p1.x {
-            std::mem::swap(&mut p0, &mut p1);
-        }
+    _ = x01.pop();
+    let x012 = [x01, x12].concat();
 
-        for (x, y) in interpolate(p0.x, p0.y, p1.x, p1.y) {
-            canvas.put_pixel(x, y as i32, color);
-        }
-    } else {
-        if p0.y > p1.y {
-            std::mem::swap(&mut p0, &mut p1);
-        }
-
-        for (y, x) in interpolate(p0.y, p0.x, p1.y, p1.x) {
-            canvas.put_pixel(x as i32, y, color);
-        }
-    }
-}
-
-pub fn draw_wireframe_triangle(canvas: &mut Canvas, p0: Point, p1: Point, p2: Point, color: Color) {
-    draw_line(canvas, p0, p1, color);
-    draw_line(canvas, p1, p2, color);
-    draw_line(canvas, p2, p0, color);
+    (x02, x012)
 }
 
 const VIEWPORT_WIDTH: f64 = 1.0;
@@ -84,13 +74,7 @@ pub fn draw_filled_triangle(
         std::mem::swap(&mut p2, &mut p1);
     }
 
-    let mut x01 = interpolate(p0.y, p0.x, p1.y, p1.x);
-    let x12 = interpolate(p1.y, p1.x, p2.y, p2.x);
-    let x02 = interpolate(p0.y, p0.x, p2.y, p2.x);
-
-    _ = x01.pop();
-
-    let x012 = [x01, x12].concat();
+    let (x02, x012) = edge_interpolate(p0.y, p0.x, p1.y, p1.x, p2.y, p2.x);
 
     let m = x02.len() / 2;
     let (x_left, x_right) = if x02[m] < x012[m] {
@@ -375,4 +359,32 @@ fn transform_and_clip(
         bounds_center: model.bounds_center,
         bounds_radius: model.bounds_radius,
     })
+}
+
+pub fn draw_line(canvas: &mut Canvas, mut p0: Point, mut p1: Point, color: Color) {
+    if (p1.x - p0.x).abs() > (p1.y - p0.y).abs() {
+        // line is horizontal-ish
+
+        if p0.x > p1.x {
+            std::mem::swap(&mut p0, &mut p1);
+        }
+
+        for (x, y) in interpolate(p0.x, p0.y, p1.x, p1.y) {
+            canvas.put_pixel(x, y as i32, color);
+        }
+    } else {
+        if p0.y > p1.y {
+            std::mem::swap(&mut p0, &mut p1);
+        }
+
+        for (y, x) in interpolate(p0.y, p0.x, p1.y, p1.x) {
+            canvas.put_pixel(x as i32, y, color);
+        }
+    }
+}
+
+pub fn draw_wireframe_triangle(canvas: &mut Canvas, p0: Point, p1: Point, p2: Point, color: Color) {
+    draw_line(canvas, p0, p1, color);
+    draw_line(canvas, p1, p2, color);
+    draw_line(canvas, p2, p0, color);
 }
