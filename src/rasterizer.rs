@@ -202,20 +202,66 @@ impl Rasterizer {
         let i2 = illumination(v2, normal2, &self.camera, &self.lights);
         let (i02, i012) = edge_interpolate(p0.y, i0, p1.y, i1, p2.y, i2);
 
+        // phong
+        let (nx02, nx012) = edge_interpolate(p0.y, normal0.0, p1.y, normal1.0, p2.y, normal2.0);
+        let (ny02, ny012) = edge_interpolate(p0.y, normal0.1, p1.y, normal1.1, p2.y, normal2.1);
+        let (nz02, nz012) = edge_interpolate(p0.y, normal0.2, p1.y, normal1.2, p2.y, normal2.2);
+
         let m = x02.len() / 2;
-        let (x_left, x_right, z_left, z_right, i_left, i_right) = if x02[m] < x012[m] {
-            (x02, x012, z02, z012, i02, i012)
+        let (
+            x_left,
+            x_right,
+            z_left,
+            z_right,
+            i_left,
+            i_right,
+            nx_left,
+            nx_right,
+            ny_left,
+            ny_right,
+            nz_left,
+            nz_right,
+        ) = if x02[m] < x012[m] {
+            (
+                x02, x012, z02, z012, i02, i012, nx02, nx012, ny02, ny012, nz02, nz012,
+            )
         } else {
-            (x012, x02, z012, z02, i012, i02)
+            (
+                x012, x02, z012, z02, i012, i02, nx012, nx02, ny012, ny02, nz012, nz02,
+            )
         };
 
-        for ((((((y, left_x), right_x), left_z), right_z), left_i), right_i) in (p0.y..=p2.y)
+        for (
+            (
+                (
+                    (
+                        (
+                            (
+                                ((((((y, left_x), right_x), left_z), right_z), left_i), right_i),
+                                left_nx,
+                            ),
+                            right_nx,
+                        ),
+                        left_ny,
+                    ),
+                    right_ny,
+                ),
+                left_nz,
+            ),
+            right_nz,
+        ) in (p0.y..=p2.y)
             .zip(x_left)
             .zip(x_right)
             .zip(z_left)
             .zip(z_right)
             .zip(i_left)
             .zip(i_right)
+            .zip(nx_left)
+            .zip(nx_right)
+            .zip(ny_left)
+            .zip(ny_right)
+            .zip(nz_left)
+            .zip(nz_right)
         {
             let (lx, rx) = (left_x as i32, right_x as i32);
 
@@ -237,7 +283,21 @@ impl Rasterizer {
                         }
                     }
                 }
-                ShadingModel::Phong => todo!(),
+                ShadingModel::Phong => {
+                    for ((((x, z), nx), ny), nz) in (lx..=rx)
+                        .zip(interpolate(lx, left_z, rx, right_z))
+                        .zip(interpolate(lx, left_nx, rx, right_nx))
+                        .zip(interpolate(lx, left_ny, rx, right_ny))
+                        .zip(interpolate(lx, left_nz, rx, right_nz))
+                    {
+                        let vertex = unproject_vertex(canvas, x, y, z);
+                        let normal = Vec3(nx, ny, nz);
+                        let intensity = illumination(vertex, normal, &self.camera, &self.lights);
+                        if canvas.update_depth_buffer(x, y, z) {
+                            canvas.put_pixel(x, y, triangle.3 * intensity);
+                        }
+                    }
+                }
             }
         }
     }
@@ -477,7 +537,7 @@ impl Rasterizer {
                     intensity: 0.6,
                 },
             ],
-            shading_model: ShadingModel::Gouraud,
+            shading_model: ShadingModel::Phong,
         }
     }
 }
@@ -672,6 +732,27 @@ fn viewport_to_canvas(canvas: &Canvas, x: f64, y: f64) -> Point {
     }
 }
 
+fn canvas_to_viewport(canvas: &Canvas, point: Point) -> Point {
+    Point {
+        x: (point.x as f64 * VIEWPORT_WIDTH / canvas.width() as f64) as i32,
+        y: (point.y as f64 * VIEWPORT_WIDTH / canvas.height() as f64) as i32,
+    }
+}
+
 fn project_vertex(canvas: &Canvas, v: Vec3) -> Point {
     viewport_to_canvas(canvas, v.0 * DISTANCE / v.2, v.1 * DISTANCE / v.2)
+}
+
+fn unproject_vertex(canvas: &Canvas, x: i32, y: i32, z: f64) -> Vec3 {
+    let oz = 1.0 / z;
+    let ux = x as f64 * oz / DISTANCE;
+    let uy = y as f64 * oz / DISTANCE;
+    let p2d = canvas_to_viewport(
+        canvas,
+        Point {
+            x: ux as i32,
+            y: uy as i32,
+        },
+    );
+    Vec3(p2d.x as f64, p2d.y as f64, oz)
 }
