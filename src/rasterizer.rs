@@ -155,8 +155,8 @@ impl Rasterizer {
         let normal = triangle_normal(v0, v1, v2);
         // backface culling
         let camera_rotation_matrix = Matrix::rotation_y(self.camera.rotation).transpose();
-        let vertex_to_camera =
-            camera_rotation_matrix * self.camera.position - camera_rotation_matrix * v0;
+        // let vertex_to_camera = self.camera.position - v0;
+        let vertex_to_camera = -v0;
         if vertex_to_camera.dot(normal) <= 0.0 {
             return;
         }
