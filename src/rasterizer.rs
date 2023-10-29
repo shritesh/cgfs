@@ -725,34 +725,21 @@ const VIEWPORT_WIDTH: f64 = 1.0;
 const VIEWPORT_HEIGHT: f64 = 1.0;
 const DISTANCE: f64 = 1.0;
 
-fn viewport_to_canvas(canvas: &Canvas, x: f64, y: f64) -> Point {
-    Point {
-        x: (x * canvas.width() as f64 / VIEWPORT_WIDTH) as i32,
-        y: (y * canvas.height() as f64 / VIEWPORT_HEIGHT) as i32,
-    }
-}
-
-fn canvas_to_viewport(canvas: &Canvas, point: Point) -> Point {
-    Point {
-        x: (point.x as f64 * VIEWPORT_WIDTH / canvas.width() as f64) as i32,
-        y: (point.y as f64 * VIEWPORT_WIDTH / canvas.height() as f64) as i32,
-    }
-}
-
 fn project_vertex(canvas: &Canvas, v: Vec3) -> Point {
-    viewport_to_canvas(canvas, v.0 * DISTANCE / v.2, v.1 * DISTANCE / v.2)
+    Point {
+        x: (v.0 * DISTANCE / v.2 * canvas.width() as f64 / VIEWPORT_WIDTH) as i32,
+        y: (v.1 * DISTANCE / v.2 * canvas.height() as f64 / VIEWPORT_HEIGHT) as i32,
+    }
 }
 
 fn unproject_vertex(canvas: &Canvas, x: i32, y: i32, z: f64) -> Vec3 {
     let oz = 1.0 / z;
     let ux = x as f64 * oz / DISTANCE;
     let uy = y as f64 * oz / DISTANCE;
-    let p2d = canvas_to_viewport(
-        canvas,
-        Point {
-            x: ux as i32,
-            y: uy as i32,
-        },
-    );
-    Vec3(p2d.x as f64, p2d.y as f64, oz)
+
+    Vec3(
+        ux * VIEWPORT_WIDTH / canvas.width() as f64,
+        uy * VIEWPORT_WIDTH / canvas.height() as f64,
+        oz,
+    )
 }

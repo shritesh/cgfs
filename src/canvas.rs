@@ -54,7 +54,7 @@ impl Canvas {
         let height = self.height as i32;
 
         let sx = width / 2 + x;
-        let sy = height / 2 - y;
+        let sy = height / 2 - y - 1;
 
         if sx < 0 || sx >= width || sy < 0 || sy >= height {
             return;
@@ -70,7 +70,7 @@ impl Canvas {
         let height = self.height as i32;
 
         let sx = width / 2 + x;
-        let sy = height / 2 - y;
+        let sy = height / 2 - y - 1;
 
         if sx < 0 || sx >= width || sy < 0 || sy >= height {
             return false;
